@@ -45,20 +45,20 @@ async function handleButton(interaction) {
 	if (!game || game.status !== "waiting") {
 		return await interaction.reply({
 			content: "Não há um jogo disponível para entrar no momento.",
-			ephemeral: true,
+			flags: MessageFlags.Ephemeral,
 		});
 	}
 
 	if (game.players.has(interaction.user.id)) {
 		return await interaction.reply({
 			content: "Você já está participando deste jogo!",
-			ephemeral: true,
+			flags: MessageFlags.Ephemeral,
 		});
 	}
 
 	game.players.add(interaction.user.id);
 	await interaction.reply({
 		content: `${interaction.user.username} entrou no jogo!`,
-		ephemeral: false,
+		/* flags: MessageFlags.Ephemeral, */
 	});
 }

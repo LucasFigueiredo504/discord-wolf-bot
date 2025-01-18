@@ -11,6 +11,10 @@ class GameStateManager {
 		return GameStateManager.instance;
 	}
 
+	removePlayer(channelId, playerID) {
+		const game = this.activeGames.get(channelId);
+		return game.gameState.players.delete(playerID);
+	}
 	getGame(channelId) {
 		return this.activeGames.get(channelId);
 	}
