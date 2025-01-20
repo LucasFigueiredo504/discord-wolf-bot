@@ -1,5 +1,6 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const wait = require("node:timers/promises").setTimeout;
+const gameManager = require("../../game-state");
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -14,28 +15,56 @@ module.exports = {
 				.setRequired(true),
 		),
 	async execute(interaction) {
-		//confirma pro discord que a interaçaõ foi bem sucedida e ao mesmo tempo da tempo para o codigo
-		//await interaction.deferReply();
-		//espera
-		//await wait(4_000);
-		//await interaction.editReply("Pong!");
+		const game = gameManager.getGame(interaction.channelId);
 
-		await interaction.reply("Pong!");
-		//delete
-		//await interaction.deleteReply();
+		const userRole = game.playerRoles.get(interaction.user.id);
 
-		//fetch data from the response
-		//const message = await interaction.fetchReply();
-		//console.log(message);
+		if (userRole.name !== "Lobo") {
+			return await interaction.reply({
+				content: "Você não pode usar esse comando!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
-		//espera
-		await wait(2_000);
-		//edita a mensagem
-		await interaction.editReply("Pong again!");
+		if (!game || game.status !== "night") {
+			return await interaction.reply({
+				content: "Não é possível usar este commando agora!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
-		await wait(2_000);
-		//envia uma nova mensagem em seguida
-		//Note that if you use followUp() after a deferReply(), the first follow-up will edit the <application> is thinking message rather than sending a new one.
-		await interaction.followUp("Pong again again!");
+		if (!game.players.has(interaction.user.id)) {
+			return await interaction.reply({
+				content: "Você não está participando deste jogo!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		const target = interaction.options.getUser("jogador");
+		if (!game.players.has(target.id)) {
+			return await interaction.reply({
+				content: "Este jogador não está participando do jogo!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+		// Check if target is not a wolf
+		const targetRole = game.playerRoles.get(target.id);
+		if (targetRole.name === "Lobo") {
+			return await interaction.reply({
+				content: "Você não pode atacar outro Lobo!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		// Store the wolf kill vote
+		if (!game.nightKill) {
+			game.nightKill = new Map();
+		}
+		game.nightKill.set(interaction.user.id, target.id);
+
+		await interaction.reply({
+			content: `Seu voto para matar ${target.username} foi registrado!`,
+			flags: MessageFlags.Ephemeral,
+		});
 	},
 };
