@@ -8,10 +8,56 @@ const {
 const wait = require("node:timers/promises").setTimeout;
 const gameManager = require("./game-state");
 
-const roles = [{ name: "Lobo" }, { name: "Aldeão" }];
+const roles = [
+	{
+		name: "Lobo",
+		proportion: 1,
+		startMessage:
+			"Você é o lobo, uma maldição antiga transformou você em uma besta insaciável por carne humana. Saia durante a noite e caçe todos até que não sobre ninguém!",
+		nightMessage: "",
+	},
+	{
+		name: "Aldeão",
+		proportion: 0,
+		startMessage:
+			"Você é um aldeão, vive uma vida simples na vila, arando campos e cuidando dos animais.",
+		nightMessage: "A noite chegou, durma tranquilo e aguarde o amanhecer...",
+	},
+	{
+		name: "Cortesã",
+		proportion: 1,
+		startMessage:
+			"Você é a cortesã, uma mulher com encantos poderosos. Durante a noite você pode escolher alguém para afzer uma visitinha e descobrir seu papel, mas cuidado, se for a casa do lobo ou alguém sendo atacado pelo lobo você morrerá",
+		nightMessage:
+			"Você é a cortesã, escolha alguém para fazer uma visita esta noite usando /visit jogador.",
+	},
+	{
+		name: "Vidente",
+		proportion: 0,
+		startMessage:
+			"Você é a vidente, dotada do poder de ver o futuro. A cada noite, você pode prever o papel de alguém.",
+		nightMessage:
+			"Você é a vidente, escolha alguém para prever seu papel usando /seer jogador, mas cuidado, os lobos farão de tudo para te matar caso se revele.",
+	},
+	{
+		name: "Bébado",
+		proportion: 0,
+		startMessage:
+			"Você é o bêbado, sua única preocupação é a bebida. Nada pode te tirar dessa busca implacável por diversão, se os lobos te devorarem ficarão de ressaca e não atacarão na noite seguinte",
+		nightMessage: "Você passa a noite toda bebendo enquanto a vila dorme...",
+	},
+	{
+		name: "Prefeito",
+		proportion: 0,
+		startMessage:
+			"Você é o prefeito, o líder da vila. Seu voto vale por 2 na forca, você sabe que a riqueza e o controle das taxas estão em suas mãos.",
+		nightMessage:
+			"Você dorme tranquilo, sabendo que o dinheiro das taxas está indo para seu bolso.",
+	},
+];
 
 async function assignRoles(players) {
-	// Convert Set to Array for easier manipulation
+	/* // Convert Set to Array for easier manipulation
 	const playerArray = Array.from(players);
 
 	// Shuffle players
@@ -23,14 +69,21 @@ async function assignRoles(players) {
 	// Assign roles based on player count
 	const playerRoles = new Map();
 	const numPlayers = playerArray.length;
-	const numWolves = Math.max(1, Math.floor(numPlayers / 5));
-	const numSeers = Math.max(0, Math.floor(numPlayers / 5));
-	const numHunter = Math.max(0, Math.floor(numPlayers / 5));
-	const numMayor = Math.max(0, Math.floor(numPlayers / 5));
-	const numSuicidal = Math.max(0, Math.floor(numPlayers / 10));
+	const numWolves = Math.max(1, Math.floor(numPlayers / 1));
+	const numSeers = Math.max(1, Math.floor(numPlayers / 10));
+	const numMayor = Math.max(0, Math.floor(numPlayers / 10));
 	const numKiller = Math.max(0, Math.floor(numPlayers / 10));
+	const numCourtesan = Math.max(1, Math.floor(numPlayers / 10));
+	const numObserver = Math.max(0, Math.floor(numPlayers / 10));
+	const numDrunk = Math.max(0, Math.floor(numPlayers / 10));
+	const numShooter = Math.max(0, Math.floor(numPlayers / 10));
+
+	const numHunter = Math.max(0, Math.floor(numPlayers / 5));
+	const numSuicidal = Math.max(0, Math.floor(numPlayers / 10));
 	const numInquisitor = Math.max(0, Math.floor(numPlayers / 10));
 	const numMason = Math.max(0, Math.floor(numPlayers / 14));
+
+	const numVillagers = numPlayers - numWolves - numSeers;
 
 	// Assign wolves first
 	for (let i = 0; i < numWolves; i++) {
@@ -38,16 +91,54 @@ async function assignRoles(players) {
 	}
 
 	// Assign villagers to remaining players
-	for (let i = numWolves; i < numPlayers; i++) {
+	for (let i = numVillagers; i < numPlayers; i++) {
 		playerRoles.set(playerArray[i], roles[1]); // Aldeão
 	}
+
+	return playerRoles; */
+
+	const playerArray = Array.from(players);
+
+	// Shuffle players
+	for (let i = playerArray.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[playerArray[i], playerArray[j]] = [playerArray[j], playerArray[i]];
+	}
+
+	const playerRoles = new Map();
+
+	const totalProportion = roles.reduce((sum, role) => sum + role.proportion, 0);
+	const availablePlayers = [...playerArray];
+
+	// biome-ignore lint/complexity/noForEach: <explanation>
+	roles.forEach(({ proportion, ...role }) => {
+		const count = Math.max(
+			0,
+			Math.floor((proportion / totalProportion) * playerArray.length),
+		);
+		for (let i = 0; i < count && availablePlayers.length > 0; i++) {
+			const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+			const selectedPlayer = availablePlayers.splice(randomIndex, 1)[0];
+			playerRoles.set(selectedPlayer, role);
+		}
+	});
+
+	// Assign any remaining players as villagers
+	// biome-ignore lint/complexity/noForEach: <explanation>
+	availablePlayers.forEach((player) => {
+		playerRoles.set(
+			player,
+			roles.find((r) => r.name === "Aldeão"),
+		); // Default to Aldeão
+	});
 
 	return playerRoles;
 }
 
 async function handleNightKills(interaction) {
 	const game = gameManager.getGame(interaction.channelId);
-	if (!game || !game.nightKill || game.nightKill.size === 0) return null;
+	const victms = [];
+	if (!game || !game.nightKill || game.nightKill.size === 0) return victms;
 
 	const targets = Array.from(game.nightKill.entries());
 
@@ -61,16 +152,13 @@ async function handleNightKills(interaction) {
 			game.playerRoles.delete(targetId);
 
 			// Clear night kill votes
-			game.nightKill.clear();
 
-			return {
-				user: victimUser,
-				role: victimRole,
-			};
+			victms.push({ user: victimUser, role: victimRole });
 		}
 	}
+	game.nightKill.clear();
 
-	return null;
+	return victms;
 }
 
 async function handleNewRound(interaction) {
@@ -86,7 +174,7 @@ async function handleNewRound(interaction) {
 		for (const [playerId, role] of game.playerRoles) {
 			const player = await interaction.client.users.fetch(playerId);
 			try {
-				await player.send(`Você é: ${role.name}`);
+				await player.send(role.startMessage);
 			} catch (error) {
 				console.error(`Couldn't send DM to ${player.username}`);
 			}
@@ -107,8 +195,8 @@ async function handleNewRound(interaction) {
 
 	// Wait 30 seconds before morning
 	await wait(5000);
-	// Private message during night
 
+	// Private message during night
 	await sendPrivateNightMessages(interaction, game);
 
 	await wait(30000);
@@ -116,12 +204,15 @@ async function handleNewRound(interaction) {
 	// Morning phase
 	game.status = "morning-results";
 
-	const nightKillResult = await handleNightKills(interaction);
+	const nightKillResults = await handleNightKills(interaction);
 
 	let morningDescription = "🌞 O sol nasce em mais um dia na vila...";
 
-	if (nightKillResult) {
-		morningDescription += `\n\n💀 Durante a noite, ${nightKillResult.user.username} foi encontrado morto! Eles eram um ${nightKillResult.role.name}!`;
+	if (nightKillResults.length > 0) {
+		morningDescription += "\n\n💀 Durante a noite...\n";
+		for (let i = 0; i < nightKillResults.length; i++) {
+			morningDescription += `${nightKillResults[i].user.username} foi encontrado morto! Eles eram um ${nightKillResults[i].role.name}!`;
+		}
 	} else {
 		morningDescription += "\n\nMilagrosamente, ninguém morreu esta noite!";
 	}
@@ -236,9 +327,7 @@ async function sendPrivateNightMessages(interaction, game) {
 	for (const { villagerId, role } of villagers) {
 		try {
 			const villager = await interaction.client.users.fetch(villagerId);
-			await villager.send(
-				`Você é um ${role.name} A noite chegou, durma tranquilo e aguarde o amanhecer...`,
-			);
+			await villager.send(role.nightMessage);
 		} catch (error) {
 			console.error(`Couldn't send DM to villager ${villagerId}`);
 		}
