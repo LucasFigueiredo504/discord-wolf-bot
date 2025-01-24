@@ -3,19 +3,29 @@ const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 
 module.exports = {
 	data: new SlashCommandBuilder()
-		.setName("votar")
-		.setDescription("Vota em um jogador para ser eliminado")
+		.setName("videncia")
+		.setDescription("Escole um jogador para descobrir seu papel")
 		.addUserOption((option) =>
 			option
 				.setName("jogador")
-				.setDescription("O jogador que você quer votar")
+				.setDescription("O jogador que você quer prever o papel")
 				.setRequired(true),
 		),
 	async execute(interaction) {
 		const game = gameManager.getGame(interaction.channelId);
-		if (!game || game.status !== "voting") {
+
+		const userRole = game.playerRoles.get(interaction.user.id);
+
+		if (userRole.name !== "Vidente") {
 			return await interaction.reply({
-				content: "Não há uma votação em andamento no momento!",
+				content: "Você não é um vidente!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		if (!game || game.status !== "night") {
+			return await interaction.reply({
+				content: "Não pode usar esse comando agora!",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -35,14 +45,13 @@ module.exports = {
 			});
 		}
 
-		if (!game.votes) game.votes = new Map();
-		if (game.playersRoles.get(interaction.user.id) === "Prefeito") {
-			game.votes.set(interaction.user.id, target.id);
+		if (!game.nightSkills) {
+			game.nightSkills = new Map();
 		}
-		game.votes.set(interaction.user.id, target.id);
+		game.nightSkills.set(interaction.user.id, target.id);
 
 		await interaction.reply({
-			content: `Seu voto em ${target.username} foi registrado!`,
+			content: `Voto para prever o papel de ${target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,
 		});
 	},

@@ -25,7 +25,7 @@ const roles = [
 	},
 	{
 		name: "Cortesã",
-		proportion: 1,
+		proportion: 0,
 		startMessage:
 			"Você é a cortesã, uma mulher com encantos poderosos. Durante a noite você pode escolher alguém para afzer uma visitinha e descobrir seu papel, mas cuidado, se for a casa do lobo ou alguém sendo atacado pelo lobo você morrerá",
 		nightMessage:
@@ -37,11 +37,11 @@ const roles = [
 		startMessage:
 			"Você é a vidente, dotada do poder de ver o futuro. A cada noite, você pode prever o papel de alguém.",
 		nightMessage:
-			"Você é a vidente, escolha alguém para prever seu papel usando /seer jogador, mas cuidado, os lobos farão de tudo para te matar caso se revele.",
+			"Você é a vidente, escolha alguém para prever seu papel usando /videncia jogador, mas cuidado, os lobos farão de tudo para te matar caso se revele.",
 	},
 	{
-		name: "Bébado",
-		proportion: 0,
+		name: "Bêbado",
+		proportion: 1,
 		startMessage:
 			"Você é o bêbado, sua única preocupação é a bebida. Nada pode te tirar dessa busca implacável por diversão, se os lobos te devorarem ficarão de ressaca e não atacarão na noite seguinte",
 		nightMessage: "Você passa a noite toda bebendo enquanto a vila dorme...",
@@ -57,46 +57,6 @@ const roles = [
 ];
 
 async function assignRoles(players) {
-	/* // Convert Set to Array for easier manipulation
-	const playerArray = Array.from(players);
-
-	// Shuffle players
-	for (let i = playerArray.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[playerArray[i], playerArray[j]] = [playerArray[j], playerArray[i]];
-	}
-
-	// Assign roles based on player count
-	const playerRoles = new Map();
-	const numPlayers = playerArray.length;
-	const numWolves = Math.max(1, Math.floor(numPlayers / 1));
-	const numSeers = Math.max(1, Math.floor(numPlayers / 10));
-	const numMayor = Math.max(0, Math.floor(numPlayers / 10));
-	const numKiller = Math.max(0, Math.floor(numPlayers / 10));
-	const numCourtesan = Math.max(1, Math.floor(numPlayers / 10));
-	const numObserver = Math.max(0, Math.floor(numPlayers / 10));
-	const numDrunk = Math.max(0, Math.floor(numPlayers / 10));
-	const numShooter = Math.max(0, Math.floor(numPlayers / 10));
-
-	const numHunter = Math.max(0, Math.floor(numPlayers / 5));
-	const numSuicidal = Math.max(0, Math.floor(numPlayers / 10));
-	const numInquisitor = Math.max(0, Math.floor(numPlayers / 10));
-	const numMason = Math.max(0, Math.floor(numPlayers / 14));
-
-	const numVillagers = numPlayers - numWolves - numSeers;
-
-	// Assign wolves first
-	for (let i = 0; i < numWolves; i++) {
-		playerRoles.set(playerArray[i], roles[0]); // Lobo
-	}
-
-	// Assign villagers to remaining players
-	for (let i = numVillagers; i < numPlayers; i++) {
-		playerRoles.set(playerArray[i], roles[1]); // Aldeão
-	}
-
-	return playerRoles; */
-
 	const playerArray = Array.from(players);
 
 	// Shuffle players
@@ -142,10 +102,17 @@ async function handleNightKills(interaction) {
 
 	const targets = Array.from(game.nightKill.entries());
 
-	for (const [_, targetId] of targets) {
+	for (const [userId, targetId] of targets) {
 		if (targetId) {
+			const userRole = game.playerRoles.get(userId);
+
 			const victimUser = await interaction.client.users.fetch(targetId);
 			const victimRole = game.playerRoles.get(targetId);
+
+			if (victimRole.name === "Bêbado" && userRole.name === "Lobo") {
+				//handle drunk wolf
+				game.cantUseSkill.set(userId, true);
+			}
 
 			// Remove player from game
 			game.players.delete(targetId);
@@ -163,6 +130,8 @@ async function handleNightKills(interaction) {
 
 async function handleNewRound(interaction) {
 	const game = gameManager.getGame(interaction.channelId);
+	if (!game.cantUseSkill) game.cantUseSkill = new Map();
+
 	if (!game) return;
 
 	//asign roles to players
@@ -183,6 +152,7 @@ async function handleNewRound(interaction) {
 
 	// Start the game
 	game.status = "night";
+	await handleResetSkillBlocks(game);
 	const nightEmbed = new EmbedBuilder()
 		.setColor(0x000066)
 		.setTitle("🌙 A noite chegou!")
@@ -205,6 +175,7 @@ async function handleNewRound(interaction) {
 	game.status = "morning-results";
 
 	const nightKillResults = await handleNightKills(interaction);
+	await handleNightSKillsResults(interaction);
 
 	let morningDescription = "🌞 O sol nasce em mais um dia na vila...";
 
@@ -263,11 +234,6 @@ async function handleVotingResults(interaction) {
 		if (count > maxVotes) {
 			maxVotes = count;
 			eliminated = playerId;
-		} else if (count === maxVotes) {
-			// Handle tie by randomly selecting between tied players
-			if (Math.random() < 0.5) {
-				eliminated = playerId;
-			}
 		}
 	});
 
@@ -309,13 +275,18 @@ async function sendPrivateNightMessages(interaction, game) {
 
 		for (const wolfId of wolves) {
 			const wolf = await interaction.client.users.fetch(wolfId);
-			try {
-				await wolf.send(
-					`Você é um Lobo! Outros lobos: ${wolfList.join(", ")}\n` +
-						"Use /atacar para escolher sua vítima!",
-				);
-			} catch (error) {
-				console.error(`Couldn't send DM to wolf ${wolf.username}`);
+			const canUseSkill =
+				game.cantUseSkill.get(wolfId) === undefined ||
+				!game.cantUseSkill.get(wolfId);
+			if (canUseSkill) {
+				try {
+					await wolf.send(
+						`Você é um Lobo! Outros lobos: ${wolfList.join(", ")}\n` +
+							"Use /atacar para escolher sua vítima!",
+					);
+				} catch (error) {
+					console.error(`Couldn't send DM to wolf ${wolf.username}`);
+				}
 			}
 		}
 	}
@@ -325,11 +296,57 @@ async function sendPrivateNightMessages(interaction, game) {
 		.map(([villagerId, role]) => ({ villagerId, role }));
 
 	for (const { villagerId, role } of villagers) {
-		try {
-			const villager = await interaction.client.users.fetch(villagerId);
-			await villager.send(role.nightMessage);
-		} catch (error) {
-			console.error(`Couldn't send DM to villager ${villagerId}`);
+		const canUseSkill =
+			game.cantUseSkill.get(villagerId) === undefined ||
+			!game.cantUseSkill.get(villagerId);
+		if (canUseSkill) {
+			try {
+				const villager = await interaction.client.users.fetch(villagerId);
+				await villager.send(role.nightMessage);
+			} catch (error) {
+				console.error(`Couldn't send DM to villager ${villagerId}`);
+			}
+		}
+	}
+}
+
+async function handleResetSkillBlocks(game) {
+	game.cantUseSkill.forEach((userId, state) => {
+		voteCounts.delete(userId);
+	});
+}
+
+async function handleNightSKillsResults(interaction) {
+	const game = gameManager.getGame(interaction.channelId);
+	const skills = Array.from(game.nightSkills.entries());
+
+	for (const [userId, targetId] of skills) {
+		const skillUser = await interaction.client.users.fetch(userId);
+		const skillUserRole = game.playerRoles.get(userId);
+
+		if (targetId) {
+			const targetUser = await interaction.client.users.fetch(targetId);
+			const targetRole = game.playerRoles.get(targetId);
+
+			if (skillUserRole.name === "Vidente") {
+				await skillUser.send(
+					`Você vê que ${targetUser.username} é o ${targetRole.name}`,
+				);
+			}
+			if (skillUserRole.name === "Cortesã") {
+				await skillUser.send(
+					`Após sua visita, você sabe que ${targetUser.username} é o ${targetRole.name}`,
+				);
+			}
+		}
+		//handle drunk wolf message
+		if (skillUserRole.name === "Lobo") {
+			const cantUseSkill = game.cantUseSkill.get(userId);
+			if (cantUseSkill) {
+				await skillUser.send(
+					"Você devorou o bêbado, ele ingeriu tanto alcool que até você ficou bebado ao come-lo e não poderá atacar esta noite!",
+				);
+			}
 		}
 	}
 }

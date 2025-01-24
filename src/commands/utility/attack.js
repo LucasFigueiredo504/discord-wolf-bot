@@ -40,6 +40,17 @@ module.exports = {
 			});
 		}
 
+		const canUseSkill =
+			game.cantUseSkill.get(villagerId) === undefined ||
+			!game.cantUseSkill.get(villagerId);
+
+		if (!canUseSkill) {
+			return await interaction.reply({
+				content: "Você não pode usar este comando agora!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
 		const target = interaction.options.getUser("jogador");
 		if (!game.players.has(target.id)) {
 			return await interaction.reply({

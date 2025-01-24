@@ -31,7 +31,9 @@ module.exports = {
 			votes: new Map(),
 			playerRoles: null,
 			nightKill: new Map(),
-			nightSkill: new Map(),
+			nightSkills: new Map(),
+			playerSkillUsage: new Map(),
+			cantUseSkill: new Map(),
 		};
 		gameManager.setGame(interaction.channelId, gameState);
 
