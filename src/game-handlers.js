@@ -11,48 +11,71 @@ const gameManager = require("./game-state");
 const roles = [
 	{
 		name: "Lobo",
+		icon: "🐺",
 		proportion: 1,
 		startMessage:
 			"Você é o lobo, uma maldição antiga transformou você em uma besta insaciável por carne humana. Saia durante a noite e caçe todos até que não sobre ninguém!",
 		nightMessage: "",
+		dayMessage: "",
 	},
 	{
 		name: "Aldeão",
+		icon: "🧑",
 		proportion: 0,
 		startMessage:
 			"Você é um aldeão, vive uma vida simples na vila, arando campos e cuidando dos animais.",
 		nightMessage: "A noite chegou, durma tranquilo e aguarde o amanhecer...",
+		dayMessage: "",
 	},
 	{
 		name: "Cortesã",
-		proportion: 0,
+		icon: "💋",
+		proportion: 1,
 		startMessage:
 			"Você é a cortesã, uma mulher com encantos poderosos. Durante a noite você pode escolher alguém para afzer uma visitinha e descobrir seu papel, mas cuidado, se for a casa do lobo ou alguém sendo atacado pelo lobo você morrerá",
 		nightMessage:
 			"Você é a cortesã, escolha alguém para fazer uma visita esta noite usando /visit jogador.",
+		dayMessage: "",
 	},
 	{
 		name: "Vidente",
+		icon: "🔮",
 		proportion: 0,
 		startMessage:
 			"Você é a vidente, dotada do poder de ver o futuro. A cada noite, você pode prever o papel de alguém.",
 		nightMessage:
 			"Você é a vidente, escolha alguém para prever seu papel usando /videncia jogador, mas cuidado, os lobos farão de tudo para te matar caso se revele.",
+		dayMessage: "",
 	},
 	{
 		name: "Bêbado",
-		proportion: 1,
+		icon: "🍺",
+		proportion: 0,
 		startMessage:
 			"Você é o bêbado, sua única preocupação é a bebida. Nada pode te tirar dessa busca implacável por diversão, se os lobos te devorarem ficarão de ressaca e não atacarão na noite seguinte",
 		nightMessage: "Você passa a noite toda bebendo enquanto a vila dorme...",
+		dayMessage: "",
 	},
 	{
 		name: "Prefeito",
+		icon: "👑",
 		proportion: 0,
 		startMessage:
 			"Você é o prefeito, o líder da vila. Seu voto vale por 2 na forca, você sabe que a riqueza e o controle das taxas estão em suas mãos.",
 		nightMessage:
 			"Você dorme tranquilo, sabendo que o dinheiro das taxas está indo para seu bolso.",
+		dayMessage: "",
+	},
+	{
+		name: "Atirador",
+		icon: "🔫",
+		proportion: 0,
+		startMessage:
+			"Você é o atirador,joga pela vila, sua arma é sua maior aliada. Você possui 2 balas que pode usar para matar alguém durante o dia caso ache que essa pessoa é o lobo",
+		nightMessage:
+			"Você se recole para sua casa para dormir com sua arma em baixo do travesseiro",
+		dayMessage:
+			"O dia chegou, pegue sua arma e use /tiro jogador para matar alguém",
 	},
 ];
 
@@ -116,7 +139,8 @@ async function handleNightKills(interaction) {
 
 			// Remove player from game
 			game.players.delete(targetId);
-			game.playerRoles.delete(targetId);
+			game.deadPlayers.set(victimUser.username, victimRole.name);
+			//game.playerRoles.delete(targetId);
 
 			// Clear night kill votes
 
@@ -174,21 +198,55 @@ async function handleNewRound(interaction) {
 	// Morning phase
 	game.status = "morning-results";
 
-	const nightKillResults = await handleNightKills(interaction);
-	await handleNightSKillsResults(interaction);
+	const morningAnoucementEmbed = new EmbedBuilder()
+		.setColor(0xffff00)
+		.setTitle("Manhã")
+		.setDescription("🌞 O sol nasce em mais um dia na vila...")
+		.setImage(
+			"https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHh5bG15Z3RxcjMybHU0em1wN3dmOHV2aDM3YjFwMXhkM2JsMWw3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uFmH8za4E6M5STIiTu/giphy.gif",
+		);
 
-	let morningDescription = "🌞 O sol nasce em mais um dia na vila...";
+	await interaction.followUp(morningAnoucementEmbed);
+	await wait(4000);
+	const didSomeoneDie = await handleNightSKillsResults(interaction);
+	const nightKillResults = await handleNightKills(interaction);
+
+	let morningDescription = "";
+
+	await sendPrivateDayMessages(interaction, game);
 
 	if (nightKillResults.length > 0) {
 		morningDescription += "\n\n💀 Durante a noite...\n";
 		for (let i = 0; i < nightKillResults.length; i++) {
 			morningDescription += `${nightKillResults[i].user.username} foi encontrado morto! Eles eram um ${nightKillResults[i].role.name}!`;
 		}
+		await interaction.followUp(morningDescription);
 	} else {
-		morningDescription += "\n\nMilagrosamente, ninguém morreu esta noite!";
+		if (!didSomeoneDie) {
+			morningDescription += "\n\nMilagrosamente, ninguém morreu esta noite!";
+			await interaction.followUp(morningDescription);
+		}
 	}
 
-	await interaction.followUp(morningDescription);
+	await wait(4000);
+	//shows who is alive and who is dead
+	let playersAliveDescription = "";
+	for (const playerId of game.players) {
+		const user = await interaction.client.users.fetch(playerId);
+		playersAliveDescription += `🧑 ${user.username}\n`;
+	}
+	if (game.deadPlayers !== undefined) {
+		for (const [playerUsername, role] of game.deadPlayers) {
+			playersAliveDescription += `☠ ${playerUsername}-${role}\n`;
+		}
+	}
+	const playersAliveEmbed = new EmbedBuilder()
+		.setColor(0xffff00)
+		.setTitle("Jogadores vivos")
+		.setDescription(playersAliveDescription);
+
+	await interaction.followUp({ embeds: [playersAliveEmbed] });
+	await wait(4000);
 	await interaction.followUp("Votação para forca começa em 30 segundos");
 	await wait(30000);
 
@@ -201,9 +259,6 @@ async function handleNewRound(interaction) {
 			"É hora de decidir! Quem será executado?\n" +
 				"Use `/votar @jogador` para dar seu voto.\n" +
 				"Você tem 60 segundos para votar!",
-		)
-		.setImage(
-			"https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHh5bG15Z3RxcjMybHU0em1wN3dmOHV2aDM3YjFwMXhkM2JsMWw3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uFmH8za4E6M5STIiTu/giphy.gif",
 		);
 
 	await interaction.followUp({ embeds: [morningEmbed] });
@@ -310,6 +365,27 @@ async function sendPrivateNightMessages(interaction, game) {
 	}
 }
 
+async function sendPrivateDayMessages(interaction, game) {
+	//Shooter
+	const villagers = Array.from(game.playerRoles.entries())
+		.filter(([_, role]) => role.name === "Atirador")
+		.map(([userId, role]) => ({ userId, role }));
+
+	for (const { userId, role } of villagers) {
+		const canUseSkill =
+			game.cantUseSkill.get(userId) === undefined ||
+			!game.cantUseSkill.get(userId);
+		if (canUseSkill) {
+			try {
+				const villager = await interaction.client.users.fetch(userId);
+				await villager.send(role.dayMessage);
+			} catch (error) {
+				console.error(`Couldn't send DM to villager ${userId}`);
+			}
+		}
+	}
+}
+
 async function handleResetSkillBlocks(game) {
 	game.cantUseSkill.forEach((userId, state) => {
 		voteCounts.delete(userId);
@@ -319,6 +395,7 @@ async function handleResetSkillBlocks(game) {
 async function handleNightSKillsResults(interaction) {
 	const game = gameManager.getGame(interaction.channelId);
 	const skills = Array.from(game.nightSkills.entries());
+	let didSomeoneDie = false;
 
 	for (const [userId, targetId] of skills) {
 		const skillUser = await interaction.client.users.fetch(userId);
@@ -334,8 +411,57 @@ async function handleNightSKillsResults(interaction) {
 				);
 			}
 			if (skillUserRole.name === "Cortesã") {
+				const findPlayerIdWithTarget = (targetId) => {
+					for (const [playerId, victimId] of game.nightKill.entries()) {
+						if (victimId === targetId) {
+							return playerId;
+						}
+					}
+					return null;
+				};
+
+				//if cortesain chooses the wolf
+				if (targetRole.name === "Lobo") {
+					await skillUser.send(
+						`Ao visitar ${targetUser.username}, tudo parecia ótimo até que ao chegarem no quarto, ${targetUser.username} começou a rosnar e revelar garras e dentes enormes! ${targetUser.username} era o ${targetRole.name}!\nVocê morreu!`,
+					);
+					game.players.delete(userId);
+					game.deadPlayers.set(skillUser.username, skillUserRole.name);
+					//game.playerRoles.delete(userId);]
+
+					await interaction.followUp(
+						`Um cheiro podre emana do chiqueiro da vila, ao inspecionar, os aldeões descobrem que se trata da carcaça de ${skillUser.username}!\n Ele era a cortesã.`,
+					);
+					didSomeoneDie = true;
+					return didSomeoneDie;
+				}
+				//if cortesain chooses someone being attacked by the wolf
+				if (findPlayerIdWithTarget(targetId)) {
+					const attackingWolfUser = await interaction.client.users.fetch(
+						findPlayerIdWithTarget(targetId),
+					);
+					await skillUser.send(
+						`Ao entrar na casa de ${targetUser.username}, você escuta fortes barulhos e ao investigar você encontra ${targetUser.username} sendo atacado pelo lobo!\nO lobo vira pra você e parte para o ataque!\nVocê morreu!`,
+					);
+					game.players.delete(userId);
+					game.deadPlayers.set(skillUser.username, skillUserRole.name);
+					//game.playerRoles.delete(userId);]
+					await interaction.followUp(
+						`Um cheiro podre emana do chiqueiro da vila, ao inspecionar, os aldeões descobrem que se trata da carcaça de ${skillUser.username}!\n Ele era a cortesã.`,
+					);
+					victms.push("");
+					try {
+						await attackingWolfUser.send(
+							`Ao realizar seu ataque noturno, ${skillUser.username} aparece na casa onde você estava, você aproveita e o devora também!`,
+						);
+					} catch (error) {
+						console.error(`Couldn't send DM to wolf ${wolf.username}`);
+					}
+					didSomeoneDie = true;
+					return didSomeoneDie;
+				}
 				await skillUser.send(
-					`Após sua visita, você sabe que ${targetUser.username} é o ${targetRole.name}`,
+					`Após sua visita, você descobriu que ${targetUser.username} é o ${targetRole.name}`,
 				);
 			}
 		}
@@ -349,6 +475,47 @@ async function handleNightSKillsResults(interaction) {
 			}
 		}
 	}
+	return false;
+}
+
+function createBotPlayers(game, numberOfBots) {
+	const botNames = ["AI Alice", "AI Bob", "AI Charlie", "AI David", "AI Eve"];
+	const botUsers = [];
+
+	for (let i = 0; i < numberOfBots; i++) {
+		const botId = `bot_${Date.now()}_${i}`;
+		const botUser = {
+			id: botId,
+			username: botNames[i] || `Bot ${i + 1}`,
+			isBot: true,
+			discriminator: "0000", // Discord bot discriminator
+		};
+
+		game.players.add(botId);
+		game.botUsers.set(botId, username);
+		botUsers.push(botUser);
+	}
+
+	return bots;
+}
+async function handleBotNightActions(game) {
+	for (const [playerId, role] of game.playerRoles) {
+		if (game.players.find((p) => p.id === playerId && p.isBot)) {
+			if (role.nightAction) {
+				const target = botChooseNightTarget(game, role);
+				await role.nightAction(game, target);
+			}
+		}
+	}
+}
+
+async function handleBotVoting(game) {
+	for (const player of game.players) {
+		if (player.isBot && !game.playerRoles.get(player.id).isDead) {
+			const vote = botVote(game);
+			await processVote(game, player, vote);
+		}
+	}
 }
 
 module.exports = {
@@ -357,4 +524,5 @@ module.exports = {
 	handleVotingResults,
 	handleNewRound,
 	sendPrivateNightMessages,
+	createBotPlayers,
 };

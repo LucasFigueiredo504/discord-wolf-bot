@@ -4,14 +4,14 @@ const gameManager = require("../../game-state");
 
 module.exports = {
 	data: new SlashCommandBuilder()
-		.setName("atacar")
+		.setName("tiro")
 		.setDescription(
-			"Se você for o lobo, escolha um usuario para matar durante a noite",
+			"Se você for o atirador, escolha um usuario para atirar durante o dia",
 		)
 		.addUserOption((option) =>
 			option
 				.setName("jogador")
-				.setDescription("O jogador que você quer matar")
+				.setDescription("O jogador que você quer atirar")
 				.setRequired(true),
 		),
 	async execute(interaction) {
@@ -28,14 +28,14 @@ module.exports = {
 			});
 		}
 
-		if (userRole.name !== "Lobo") {
+		if (userRole.name !== "Atirador") {
 			return await interaction.reply({
 				content: "Você não pode usar esse comando!",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
 
-		if (!game || game.status !== "night") {
+		if (!game || game.status !== "morning-results") {
 			return await interaction.reply({
 				content: "Não é possível usar este commando agora!",
 				flags: MessageFlags.Ephemeral,
@@ -59,31 +59,33 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
+		const { _, skillUsage } =
+			game.playerSkillUsage.get(interaction.user.id) || {};
 
+		if (skillUsage >= 2) {
+			return await interaction.reply({
+				content: "Você possui mais balas!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		const targetRole = game.playerRoles.get(target.id);
 		if (!game.players.has(target.id)) {
 			return await interaction.reply({
 				content: "Este jogador não está participando do jogo!",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
-		// Check if target is not a wolf
-		const targetRole = game.playerRoles.get(target.id);
-		if (targetRole.name === "Lobo") {
-			return await interaction.reply({
-				content: "Você não pode atacar outro Lobo!",
-				flags: MessageFlags.Ephemeral,
-			});
-		}
-
-		// Store the wolf kill vote
-		if (!game.nightKill) {
-			game.nightKill = new Map();
-		}
-		game.nightKill.set(interaction.user.id, target.id);
+		game.playerSkillUsage.set(interaction.user.id, skillUsage + 1);
+		game.deadPlayers.set(target.username, targetRole.name);
+		game.players.delete(target.id);
 
 		await interaction.reply({
-			content: `Seu voto para matar ${target.username} foi registrado!`,
+			content: `Seu voto para atirar em ${target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,
 		});
+		await interaction.followUp(
+			`💥BAANG! Um tiro ecoa em meio a multidão, se trata de ${interaction.user.username} que acabou de atirar em ${target.username}!\n ${target.username} era o ${targetRole.name}`,
+		);
 	},
 };

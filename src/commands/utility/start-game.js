@@ -8,7 +8,7 @@ const {
 } = require("discord.js");
 const wait = require("node:timers/promises").setTimeout;
 const gameManager = require("../../game-state");
-const { handleNewRound } = require("../../game-handlers");
+const { handleNewRound, createBotPlayers } = require("../../game-handlers");
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -26,6 +26,8 @@ module.exports = {
 		// Create game state
 		const gameState = {
 			players: new Set(),
+			botUsers: new Map(),
+			deadPlayers: new Map(),
 			status: "waiting",
 			startTime: Date.now(),
 			votes: new Map(),
@@ -65,6 +67,9 @@ module.exports = {
 		if (!game) return;
 
 		if (game.players.size < 2) {
+			const botsToAdd = 10 - game.players.size;
+			//createBotPlayers(game, botsToAdd);
+
 			await interaction.followUp(
 				"Não há jogadores suficientes para iniciar o jogo. Cancelando...",
 			);
