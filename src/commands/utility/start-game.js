@@ -66,10 +66,11 @@ module.exports = {
 		const game = gameManager.getGame(interaction.channelId);
 		if (!game) return;
 
-		if (game.players.size < 2) {
-			const botsToAdd = 10 - game.players.size;
-			//createBotPlayers(game, botsToAdd);
+		const botsToAdd = 10 - game.players.size;
+		createBotPlayers(game, botsToAdd);
+		await wait(2000);
 
+		if (game.players.size < 2) {
 			await interaction.followUp(
 				"Não há jogadores suficientes para iniciar o jogo. Cancelando...",
 			);

@@ -13,7 +13,7 @@ module.exports = {
 		),
 	async execute(interaction) {
 		const game = gameManager.getGame(interaction.channelId);
-		if (!game || game.status !== "voting") {
+		if (!game || game.status === "voting") {
 			return await interaction.reply({
 				content: "Não há uma votação em andamento no momento!",
 				flags: MessageFlags.Ephemeral,

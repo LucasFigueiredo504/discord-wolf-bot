@@ -21,7 +21,7 @@ module.exports = {
 
 		const target = interaction.options.getUser("jogador");
 
-		if (target.id !== interaction.user.id) {
+		if (target.id === interaction.user.id) {
 			return await interaction.reply({
 				content: "Você não pode usar esse em você mesmo!",
 				flags: MessageFlags.Ephemeral,

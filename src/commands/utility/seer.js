@@ -16,7 +16,7 @@ module.exports = {
 
 		const userRole = game.playerRoles.get(interaction.user.id);
 
-		if (userRole.name !== "Vidente") {
+		if (userRole.name === "Vidente") {
 			return await interaction.reply({
 				content: "Você não é um vidente!",
 				flags: MessageFlags.Ephemeral,

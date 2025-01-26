@@ -128,7 +128,9 @@ async function handleNightKills(interaction) {
 	for (const [userId, targetId] of targets) {
 		if (targetId) {
 			const userRole = game.playerRoles.get(userId);
-
+			if (targetId.includes("bot_")) {
+				continue;
+			}
 			const victimUser = await interaction.client.users.fetch(targetId);
 			const victimRole = game.playerRoles.get(targetId);
 
@@ -165,6 +167,9 @@ async function handleNewRound(interaction) {
 
 		// Send private messages to each player with their role
 		for (const [playerId, role] of game.playerRoles) {
+			if (playerId.includes("bot_")) {
+				continue;
+			}
 			const player = await interaction.client.users.fetch(playerId);
 			try {
 				await player.send(role.startMessage);
@@ -193,7 +198,7 @@ async function handleNewRound(interaction) {
 	// Private message during night
 	await sendPrivateNightMessages(interaction, game);
 
-	await wait(30000);
+	await wait(60000);
 
 	// Morning phase
 	game.status = "morning-results";
@@ -206,7 +211,7 @@ async function handleNewRound(interaction) {
 			"https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHh5bG15Z3RxcjMybHU0em1wN3dmOHV2aDM3YjFwMXhkM2JsMWw3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uFmH8za4E6M5STIiTu/giphy.gif",
 		);
 
-	await interaction.followUp(morningAnoucementEmbed);
+	await interaction.followUp({ embeds: [morningAnoucementEmbed] });
 	await wait(4000);
 	const didSomeoneDie = await handleNightSKillsResults(interaction);
 	const nightKillResults = await handleNightKills(interaction);
@@ -232,8 +237,13 @@ async function handleNewRound(interaction) {
 	//shows who is alive and who is dead
 	let playersAliveDescription = "";
 	for (const playerId of game.players) {
-		const user = await interaction.client.users.fetch(playerId);
-		playersAliveDescription += `🧑 ${user.username}\n`;
+		if (!playerId.includes("bot_")) {
+			const user = await interaction.client.users.fetch(playerId);
+			playersAliveDescription += `🧑 ${user.username}\n`;
+		}
+		const [_, username] = [playerId, game.botUsers.get(playerId)];
+		//puts the name of the bot
+		playersAliveDescription += `🧑 ${username}\n`;
 	}
 	if (game.deadPlayers !== undefined) {
 		for (const [playerUsername, role] of game.deadPlayers) {
@@ -262,7 +272,7 @@ async function handleNewRound(interaction) {
 		);
 
 	await interaction.followUp({ embeds: [morningEmbed] });
-
+	await handleBotVoting(game);
 	// Wait 60 seconds for voting
 	await wait(60000);
 
@@ -293,12 +303,22 @@ async function handleVotingResults(interaction) {
 	});
 
 	if (eliminated) {
-		const eliminatedUser = await interaction.client.users.fetch(eliminated);
-		const eliminatedRole = game.playerRoles.get(eliminated);
+		if (eliminated.includes("bot_")) {
+			const [_, username] = [eliminated, game.botUsers.get(eliminated)];
+			const eliminatedRole = game.playerRoles.get(eliminated);
 
-		await interaction.followUp(
-			`A vila votou! ${eliminatedUser.username} foi enforcado!\n ${eliminatedUser.username} era o ${eliminatedRole.name}`,
-		);
+			await interaction.followUp(
+				`A vila votou! ${username} foi enforcado!\n ${username} era o ${eliminatedRole.name}`,
+			);
+		} else {
+			const eliminatedUser = await interaction.client.users.fetch(eliminated);
+			const eliminatedRole = game.playerRoles.get(eliminated);
+
+			await interaction.followUp(
+				`A vila votou! ${eliminatedUser.username} foi enforcado!\n ${eliminatedUser.username} era o ${eliminatedRole.name}`,
+			);
+		}
+
 		game.players.delete(eliminated);
 		game.playerRoles.delete(eliminated);
 	} else {
@@ -316,6 +336,7 @@ async function handleVotingResults(interaction) {
 
 async function sendPrivateNightMessages(interaction, game) {
 	//wolf messages
+
 	const wolves = Array.from(game.playerRoles.entries())
 		.filter(([_, role]) => role.name === "Lobo")
 		.map(([playerId]) => playerId);
@@ -323,12 +344,17 @@ async function sendPrivateNightMessages(interaction, game) {
 	if (wolves.length > 0) {
 		const wolfList = await Promise.all(
 			wolves.map(async (wolfId) => {
-				const wolf = await interaction.client.users.fetch(wolfId);
-				return wolf.username;
+				if (!wolfId.includes("bot_")) {
+					const wolf = await interaction.client.users.fetch(wolfId);
+					return wolf.username;
+				}
 			}),
 		);
 
 		for (const wolfId of wolves) {
+			if (wolfId.includes("bot_")) {
+				continue;
+			}
 			const wolf = await interaction.client.users.fetch(wolfId);
 			const canUseSkill =
 				game.cantUseSkill.get(wolfId) === undefined ||
@@ -351,6 +377,9 @@ async function sendPrivateNightMessages(interaction, game) {
 		.map(([villagerId, role]) => ({ villagerId, role }));
 
 	for (const { villagerId, role } of villagers) {
+		if (villagerId.includes("bot_")) {
+			continue;
+		}
 		const canUseSkill =
 			game.cantUseSkill.get(villagerId) === undefined ||
 			!game.cantUseSkill.get(villagerId);
@@ -372,6 +401,9 @@ async function sendPrivateDayMessages(interaction, game) {
 		.map(([userId, role]) => ({ userId, role }));
 
 	for (const { userId, role } of villagers) {
+		if (userId.includes("bot_")) {
+			continue;
+		}
 		const canUseSkill =
 			game.cantUseSkill.get(userId) === undefined ||
 			!game.cantUseSkill.get(userId);
@@ -398,10 +430,17 @@ async function handleNightSKillsResults(interaction) {
 	let didSomeoneDie = false;
 
 	for (const [userId, targetId] of skills) {
+		if (userId.includes("bot_")) {
+			continue;
+		}
+
 		const skillUser = await interaction.client.users.fetch(userId);
 		const skillUserRole = game.playerRoles.get(userId);
 
 		if (targetId) {
+			if (targetId.includes("bot_")) {
+				continue;
+			}
 			const targetUser = await interaction.client.users.fetch(targetId);
 			const targetRole = game.playerRoles.get(targetId);
 
@@ -479,24 +518,31 @@ async function handleNightSKillsResults(interaction) {
 }
 
 function createBotPlayers(game, numberOfBots) {
-	const botNames = ["AI Alice", "AI Bob", "AI Charlie", "AI David", "AI Eve"];
-	const botUsers = [];
+	const botNames = [
+		"Foxtrot",
+		"Delta",
+		"Apha",
+		"Bravo",
+		"Beta",
+		"GaMma",
+		"Zeta",
+		"Omega",
+		"Phi",
+		"Sigma",
+	];
 
 	for (let i = 0; i < numberOfBots; i++) {
 		const botId = `bot_${Date.now()}_${i}`;
 		const botUser = {
 			id: botId,
-			username: botNames[i] || `Bot ${i + 1}`,
+			username: botNames[i] || `Bot_${i + 1}`,
 			isBot: true,
 			discriminator: "0000", // Discord bot discriminator
 		};
 
 		game.players.add(botId);
-		game.botUsers.set(botId, username);
-		botUsers.push(botUser);
+		game.botUsers.set(botUser.id, botUser.username);
 	}
-
-	return bots;
 }
 async function handleBotNightActions(game) {
 	for (const [playerId, role] of game.playerRoles) {
@@ -511,9 +557,13 @@ async function handleBotNightActions(game) {
 
 async function handleBotVoting(game) {
 	for (const player of game.players) {
-		if (player.isBot && !game.playerRoles.get(player.id).isDead) {
-			const vote = botVote(game);
-			await processVote(game, player, vote);
+		if (player.includes("bot_")) {
+			const eligiblePlayers = game.players.filter((p) => p !== player);
+
+			const randomPlayer =
+				eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+
+			game.votes.set(player, randomPlayer);
 		}
 	}
 }
