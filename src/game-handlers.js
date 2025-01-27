@@ -382,7 +382,7 @@ async function handleVotingResults(interaction) {
 				`A vila votou! ${eliminatedUser.username} foi enforcado!\n ${eliminatedUser.username} era o ${eliminatedRole.name}`,
 			);
 
-			game.deadPlayers.set(eliminatedUser.username, eliminatedRole);
+			game.deadPlayers.set(eliminatedUser.username, eliminatedRole.name);
 		}
 		game.players.delete(eliminated);
 		game.playerRoles.delete(eliminated);
