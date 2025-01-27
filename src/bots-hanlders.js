@@ -33,6 +33,22 @@ function createBotPlayers(game, numberOfBots) {
 	}
 }
 
+async function handleBotDayActions(game) {
+	for (const [playerId, role] of game.playerRoles) {
+		if (!playerId.includes("bot_")) {
+			continue;
+		}
+
+		switch (role.name) {
+			case "Atirador": {
+				//TODO:
+				break;
+			}
+			default:
+				break;
+		}
+	}
+}
 async function handleBotNightActions(game) {
 	for (const [playerId, role] of game.playerRoles) {
 		if (!playerId.includes("bot_")) {
@@ -63,11 +79,6 @@ async function handleBotNightActions(game) {
 			default:
 				break;
 		}
-
-		if (role.nightAction) {
-			const target = botChooseNightTarget(game, role);
-			await role.nightAction(game, target);
-		}
 	}
 }
 
@@ -92,4 +103,5 @@ module.exports = {
 	handleBotVoting,
 	handleBotNightActions,
 	createBotPlayers,
+	handleBotDayActions,
 };

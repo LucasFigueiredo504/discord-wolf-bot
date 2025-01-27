@@ -9,6 +9,7 @@ const {
 	handleBotVoting,
 	handleBotNightActions,
 	createBotPlayers,
+	handleBotDayActions,
 } = require("./bots-hanlders");
 const wait = require("node:timers/promises").setTimeout;
 const gameManager = require("./game-state");
