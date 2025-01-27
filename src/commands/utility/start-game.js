@@ -66,7 +66,7 @@ module.exports = {
 		const game = gameManager.getGame(interaction.channelId);
 		if (!game) return;
 
-		const botsToAdd = 10 - game.players.size;
+		const botsToAdd = 7 - game.players.size;
 		createBotPlayers(game, botsToAdd);
 		await wait(2000);
 

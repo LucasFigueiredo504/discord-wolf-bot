@@ -5,6 +5,11 @@ const {
 	ActionRowBuilder,
 	MessageFlags,
 } = require("discord.js");
+const {
+	handleBotVoting,
+	handleBotNightActions,
+	createBotPlayers,
+} = require("./bots-hanlders");
 const wait = require("node:timers/promises").setTimeout;
 const gameManager = require("./game-state");
 
@@ -12,7 +17,8 @@ const roles = [
 	{
 		name: "Lobo",
 		icon: "🐺",
-		proportion: 1,
+		proportion: 7,
+		max: 3,
 		startMessage:
 			"Você é o lobo, uma maldição antiga transformou você em uma besta insaciável por carne humana. Saia durante a noite e caçe todos até que não sobre ninguém!",
 		nightMessage: "",
@@ -22,6 +28,7 @@ const roles = [
 		name: "Aldeão",
 		icon: "🧑",
 		proportion: 0,
+		max: 10,
 		startMessage:
 			"Você é um aldeão, vive uma vida simples na vila, arando campos e cuidando dos animais.",
 		nightMessage: "A noite chegou, durma tranquilo e aguarde o amanhecer...",
@@ -30,7 +37,8 @@ const roles = [
 	{
 		name: "Cortesã",
 		icon: "💋",
-		proportion: 1,
+		proportion: 7,
+		max: 1,
 		startMessage:
 			"Você é a cortesã, uma mulher com encantos poderosos. Durante a noite você pode escolher alguém para afzer uma visitinha e descobrir seu papel, mas cuidado, se for a casa do lobo ou alguém sendo atacado pelo lobo você morrerá",
 		nightMessage:
@@ -40,7 +48,8 @@ const roles = [
 	{
 		name: "Vidente",
 		icon: "🔮",
-		proportion: 0,
+		proportion: 7,
+		max: 1,
 		startMessage:
 			"Você é a vidente, dotada do poder de ver o futuro. A cada noite, você pode prever o papel de alguém.",
 		nightMessage:
@@ -50,7 +59,8 @@ const roles = [
 	{
 		name: "Bêbado",
 		icon: "🍺",
-		proportion: 0,
+		proportion: 7,
+		max: 1,
 		startMessage:
 			"Você é o bêbado, sua única preocupação é a bebida. Nada pode te tirar dessa busca implacável por diversão, se os lobos te devorarem ficarão de ressaca e não atacarão na noite seguinte",
 		nightMessage: "Você passa a noite toda bebendo enquanto a vila dorme...",
@@ -59,7 +69,8 @@ const roles = [
 	{
 		name: "Prefeito",
 		icon: "👑",
-		proportion: 0,
+		proportion: 7,
+		max: 1,
 		startMessage:
 			"Você é o prefeito, o líder da vila. Seu voto vale por 2 na forca, você sabe que a riqueza e o controle das taxas estão em suas mãos.",
 		nightMessage:
@@ -69,7 +80,8 @@ const roles = [
 	{
 		name: "Atirador",
 		icon: "🔫",
-		proportion: 0,
+		proportion: 7,
+		max: 1,
 		startMessage:
 			"Você é o atirador,joga pela vila, sua arma é sua maior aliada. Você possui 2 balas que pode usar para matar alguém durante o dia caso ache que essa pessoa é o lobo",
 		nightMessage:
@@ -81,6 +93,7 @@ const roles = [
 
 async function assignRoles(players) {
 	const playerArray = Array.from(players);
+	const playerCount = playerArray.length;
 
 	// Shuffle players
 	for (let i = playerArray.length - 1; i > 0; i--) {
@@ -89,31 +102,54 @@ async function assignRoles(players) {
 	}
 
 	const playerRoles = new Map();
-
-	const totalProportion = roles.reduce((sum, role) => sum + role.proportion, 0);
 	const availablePlayers = [...playerArray];
 
-	// biome-ignore lint/complexity/noForEach: <explanation>
-	roles.forEach(({ proportion, ...role }) => {
-		const count = Math.max(
-			0,
-			Math.floor((proportion / totalProportion) * playerArray.length),
-		);
-		for (let i = 0; i < count && availablePlayers.length > 0; i++) {
+	// Calculate desired count for each role based on proportion
+	const roleDistribution = roles.map((role) => {
+		const desiredCount = Math.floor(role.proportion / playerCount);
+		return {
+			...role,
+			// Limit count by max value and available players
+			targetCount: Math.min(
+				desiredCount,
+				role.max,
+				role.name === "Aldeão" ? playerCount / 3 : playerCount - 1, // Reserve space for other roles
+			),
+		};
+	});
+
+	// First, assign mandatory roles
+	const mandatoryRoles = ["Lobo", "Vidente"];
+	for (const roleName of mandatoryRoles) {
+		const role = roleDistribution.find((r) => r.name === roleName);
+		if (role && availablePlayers.length > 0) {
 			const randomIndex = Math.floor(Math.random() * availablePlayers.length);
 			const selectedPlayer = availablePlayers.splice(randomIndex, 1)[0];
 			playerRoles.set(selectedPlayer, role);
 		}
-	});
+	}
 
-	// Assign any remaining players as villagers
-	// biome-ignore lint/complexity/noForEach: <explanation>
-	availablePlayers.forEach((player) => {
-		playerRoles.set(
-			player,
-			roles.find((r) => r.name === "Aldeão"),
-		); // Default to Aldeão
-	});
+	// Then assign other roles based on proportion and max limits
+	for (const role of roleDistribution) {
+		// Skip mandatory roles as they're already assigned
+		if (mandatoryRoles.includes(role.name)) continue;
+		// Skip Aldeão as it will be assigned to remaining players
+		if (role.name === "Aldeão") continue;
+
+		const remainingCount = Math.min(role.targetCount, availablePlayers.length);
+
+		for (let i = 0; i < remainingCount && availablePlayers.length > 0; i++) {
+			const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+			const selectedPlayer = availablePlayers.splice(randomIndex, 1)[0];
+			playerRoles.set(selectedPlayer, role);
+		}
+	}
+
+	// Assign remaining players as villagers
+	const villagerRole = roles.find((r) => r.name === "Aldeão");
+	for (const player of availablePlayers) {
+		playerRoles.set(player, villagerRole);
+	}
 
 	return playerRoles;
 }
@@ -128,10 +164,26 @@ async function handleNightKills(interaction) {
 	for (const [userId, targetId] of targets) {
 		if (targetId) {
 			const userRole = game.playerRoles.get(userId);
-			if (targetId.includes("bot_")) {
+			if (!targetId.includes("bot_")) {
+				const victimUser = game.botUsers.get(targetId);
+				const victimRole = game.playerRoles.get(targetId);
+
+				if (victimRole.name === "Bêbado" && userRole.name === "Lobo") {
+					//handle drunk wolf
+					game.cantUseSkill.set(userId, true);
+				}
+
+				// Remove player from game
+				game.players.delete(targetId);
+				game.deadPlayers.set(victimUser.username, victimRole.name);
+				//game.playerRoles.delete(targetId);
+
+				// Clear night kill votes
+
+				victms.push({ user: victimUser, role: victimRole });
 				continue;
 			}
-			const victimUser = await interaction.client.users.fetch(targetId);
+			const [_, username] = [targetId, game.botUsers.get(targetId)];
 			const victimRole = game.playerRoles.get(targetId);
 
 			if (victimRole.name === "Bêbado" && userRole.name === "Lobo") {
@@ -141,12 +193,12 @@ async function handleNightKills(interaction) {
 
 			// Remove player from game
 			game.players.delete(targetId);
-			game.deadPlayers.set(victimUser.username, victimRole.name);
+			game.deadPlayers.set(username, victimRole.name);
 			//game.playerRoles.delete(targetId);
 
 			// Clear night kill votes
 
-			victms.push({ user: victimUser, role: victimRole });
+			victms.push({ user: { username: username }, role: victimRole });
 		}
 	}
 	game.nightKill.clear();
@@ -197,8 +249,9 @@ async function handleNewRound(interaction) {
 
 	// Private message during night
 	await sendPrivateNightMessages(interaction, game);
+	handleBotNightActions(game);
 
-	await wait(60000);
+	await wait(30000);
 
 	// Morning phase
 	game.status = "morning-results";
@@ -232,6 +285,11 @@ async function handleNewRound(interaction) {
 			await interaction.followUp(morningDescription);
 		}
 	}
+	//checks if the game is not over yet
+	await checkEndGameStatus(interaction, game);
+	if (!gameManager.getGame(interaction.channelId)) {
+		return;
+	}
 
 	await wait(4000);
 	//shows who is alive and who is dead
@@ -239,15 +297,18 @@ async function handleNewRound(interaction) {
 	for (const playerId of game.players) {
 		if (!playerId.includes("bot_")) {
 			const user = await interaction.client.users.fetch(playerId);
-			playersAliveDescription += `🧑 ${user.username}\n`;
+			const role = await game.playerRoles.get(playerId);
+			playersAliveDescription += `🧑 ${user.username}-${role.name}\n`;
+		} else {
+			const [_, username] = [playerId, game.botUsers.get(playerId)];
+			const role = await game.playerRoles.get(playerId);
+			//puts the name of the bot
+			playersAliveDescription += `🧑 ${username}-${role.name}\n`;
 		}
-		const [_, username] = [playerId, game.botUsers.get(playerId)];
-		//puts the name of the bot
-		playersAliveDescription += `🧑 ${username}\n`;
 	}
 	if (game.deadPlayers !== undefined) {
 		for (const [playerUsername, role] of game.deadPlayers) {
-			playersAliveDescription += `☠ ${playerUsername}-${role}\n`;
+			playersAliveDescription += `💀 ${playerUsername}-${role}\n`;
 		}
 	}
 	const playersAliveEmbed = new EmbedBuilder()
@@ -257,7 +318,9 @@ async function handleNewRound(interaction) {
 
 	await interaction.followUp({ embeds: [playersAliveEmbed] });
 	await wait(4000);
-	await interaction.followUp("Votação para forca começa em 30 segundos");
+	await interaction.followUp(
+		"Votação para decidir quem vai para forca começa em 30 segundos",
+	);
 	await wait(30000);
 
 	//voting phase
@@ -310,6 +373,7 @@ async function handleVotingResults(interaction) {
 			await interaction.followUp(
 				`A vila votou! ${username} foi enforcado!\n ${username} era o ${eliminatedRole.name}`,
 			);
+			game.deadPlayers.set(username, eliminatedRole);
 		} else {
 			const eliminatedUser = await interaction.client.users.fetch(eliminated);
 			const eliminatedRole = game.playerRoles.get(eliminated);
@@ -317,19 +381,19 @@ async function handleVotingResults(interaction) {
 			await interaction.followUp(
 				`A vila votou! ${eliminatedUser.username} foi enforcado!\n ${eliminatedUser.username} era o ${eliminatedRole.name}`,
 			);
-		}
 
+			game.deadPlayers.set(eliminatedUser.username, eliminatedRole);
+		}
 		game.players.delete(eliminated);
 		game.playerRoles.delete(eliminated);
 	} else {
 		await interaction.followUp("Ninguém foi eliminado - houve um empate!");
 	}
 
-	// Check game end condition
-	if (game.players.size <= 1) {
-		gameManager.removeGame(interaction.channelId);
-		await interaction.followUp("O jogo acabou!");
-	} else {
+	await checkEndGameStatus(interaction, game);
+
+	if (gameManager.getGame(interaction.channelId)) {
+		await wait(15000);
 		await handleNewRound(interaction);
 	}
 }
@@ -420,7 +484,7 @@ async function sendPrivateDayMessages(interaction, game) {
 
 async function handleResetSkillBlocks(game) {
 	game.cantUseSkill.forEach((userId, state) => {
-		voteCounts.delete(userId);
+		cantUseSkill.delete(userId);
 	});
 }
 
@@ -517,53 +581,35 @@ async function handleNightSKillsResults(interaction) {
 	return false;
 }
 
-function createBotPlayers(game, numberOfBots) {
-	const botNames = [
-		"Foxtrot",
-		"Delta",
-		"Apha",
-		"Bravo",
-		"Beta",
-		"GaMma",
-		"Zeta",
-		"Omega",
-		"Phi",
-		"Sigma",
-	];
-
-	for (let i = 0; i < numberOfBots; i++) {
-		const botId = `bot_${Date.now()}_${i}`;
-		const botUser = {
-			id: botId,
-			username: botNames[i] || `Bot_${i + 1}`,
-			isBot: true,
-			discriminator: "0000", // Discord bot discriminator
-		};
-
-		game.players.add(botId);
-		game.botUsers.set(botUser.id, botUser.username);
-	}
-}
-async function handleBotNightActions(game) {
-	for (const [playerId, role] of game.playerRoles) {
-		if (game.players.find((p) => p.id === playerId && p.isBot)) {
-			if (role.nightAction) {
-				const target = botChooseNightTarget(game, role);
-				await role.nightAction(game, target);
+async function checkEndGameStatus(interaction, game) {
+	if (game.players.size <= 1 || game.players.size === 2) {
+		for (const player of game.players) {
+			const playerRole = game.playerRoles.get(player).name;
+			if (playerRole === "Lobo") {
+				gameManager.removeGame(interaction.channelId);
+				await interaction.followUp("O jogo acabou! O Lobo venceu!");
+				return;
+			}
+			if (playerRole === "Assassino") {
+				gameManager.removeGame(interaction.channelId);
+				await interaction.followUp("O jogo acabou! O Assassino venceu!");
+				return;
 			}
 		}
-	}
-}
+		gameManager.removeGame(interaction.channelId);
+		await interaction.followUp("O jogo acabou! A vila venceu!");
+	} else {
+		const hasWolf = [...game.playerRoles.values()].find(
+			(r) => r.name === "Lobo",
+		);
+		const hasKiller = [...game.playerRoles.values()].find(
+			(r) => r.name === "Assassino",
+		);
 
-async function handleBotVoting(game) {
-	for (const player of game.players) {
-		if (player.includes("bot_")) {
-			const eligiblePlayers = game.players.filter((p) => p !== player);
-
-			const randomPlayer =
-				eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
-
-			game.votes.set(player, randomPlayer);
+		if (!hasWolf && !hasKiller) {
+			gameManager.removeGame(interaction.channelId);
+			await interaction.followUp("O jogo acabou! A vila venceu!");
+			return;
 		}
 	}
 }
