@@ -53,7 +53,7 @@ async function handleBotDayActions(interaction, game) {
 				const hasDecidedToShoot = Math.random() < 0.5;
 
 				if (hasDecidedToShoot) {
-					//TODO:get user or bot from id
+					
 					const targetRole = game.playerRoles.get(randomPlayer);
 
 					if (!randomPlayer.includes("bot_")) {
@@ -96,10 +96,32 @@ async function handleBotNightActions(game) {
 				break;
 			}
 			case "Cortesã":
-				//visit
+				{//visit
+				const canUseSkill =
+					game.cantUseSkill.get(playerId) === undefined ||
+					!game.cantUseSkill.get(playerId);
+				if (!canUseSkill) {
+					break;
+				}
+				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
+				const randomPlayer =
+					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+
+				game.nightSkills.set(playerId, randomPlayer);}
 				break;
 			case "Vidente":
-				//seer
+				{//seer
+				const canUseSkill =
+					game.cantUseSkill.get(playerId) === undefined ||
+					!game.cantUseSkill.get(playerId);
+				if (!canUseSkill) {
+					break;
+				}
+				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
+				const randomPlayer =
+					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+
+				game.nightSkills.set(playerId, randomPlayer);}
 				break;
 			default:
 				break;

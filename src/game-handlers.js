@@ -498,20 +498,20 @@ async function handleNightSKillsResults(interaction) {
 		if (userId.includes("bot_")) {
 			continue;
 		}
-
+		const isTargetABot = targetId.includes("bot_");
 		const skillUser = await interaction.client.users.fetch(userId);
 		const skillUserRole = game.playerRoles.get(userId);
 
 		if (targetId) {
-			if (targetId.includes("bot_")) {
-				continue;
-			}
-			const targetUser = await interaction.client.users.fetch(targetId);
+			const targetUser =
+				!isTargetABot && (await interaction.client.users.fetch(targetId));
+			const { _, username } = !isTargetABot && game.botUsers.get(targetId);
+
 			const targetRole = game.playerRoles.get(targetId);
 
 			if (skillUserRole.name === "Vidente") {
 				await skillUser.send(
-					`Você vê que ${targetUser.username} é o ${targetRole.name}`,
+					`Você vê que ${!isTargetABot ? targetUser.username : username} é o ${targetRole.name}`,
 				);
 			}
 			if (skillUserRole.name === "Cortesã") {
@@ -527,7 +527,7 @@ async function handleNightSKillsResults(interaction) {
 				//if cortesain chooses the wolf
 				if (targetRole.name === "Lobo") {
 					await skillUser.send(
-						`Ao visitar ${targetUser.username}, tudo parecia ótimo até que ao chegarem no quarto, ${targetUser.username} começou a rosnar e revelar garras e dentes enormes! ${targetUser.username} era o ${targetRole.name}!\nVocê morreu!`,
+						`Ao visitar ${!isTargetABot ? targetUser.username : username}, tudo parecia ótimo até que ao chegarem no quarto, ${!isTargetABot ? targetUser.username : username} começou a rosnar e revelar garras e dentes enormes! ${!isTargetABot ? targetUser.username : username} era o ${targetRole.name}!\nVocê morreu!`,
 					);
 					game.players.delete(userId);
 					game.deadPlayers.set(skillUser.username, skillUserRole.name);
@@ -545,7 +545,7 @@ async function handleNightSKillsResults(interaction) {
 						findPlayerIdWithTarget(targetId),
 					);
 					await skillUser.send(
-						`Ao entrar na casa de ${targetUser.username}, você escuta fortes barulhos e ao investigar você encontra ${targetUser.username} sendo atacado pelo lobo!\nO lobo vira pra você e parte para o ataque!\nVocê morreu!`,
+						`Ao entrar na casa de ${!isTargetABot ? targetUser.username : username}, você escuta fortes barulhos e ao investigar você encontra ${!isTargetABot ? targetUser.username : username} sendo atacado pelo lobo!\nO lobo vira pra você e parte para o ataque!\nVocê morreu!`,
 					);
 					game.players.delete(userId);
 					game.deadPlayers.set(skillUser.username, skillUserRole.name);
@@ -565,7 +565,7 @@ async function handleNightSKillsResults(interaction) {
 					return didSomeoneDie;
 				}
 				await skillUser.send(
-					`Após sua visita, você descobriu que ${targetUser.username} é o ${targetRole.name}`,
+					`Após sua visita, você descobriu que ${!isTargetABot ? targetUser.username : username} é o ${targetRole.name}`,
 				);
 			}
 		}
