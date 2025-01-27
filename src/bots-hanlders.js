@@ -33,7 +33,7 @@ function createBotPlayers(game, numberOfBots) {
 	}
 }
 
-async function handleBotDayActions(game) {
+async function handleBotDayActions(interaction, game) {
 	for (const [playerId, role] of game.playerRoles) {
 		if (!playerId.includes("bot_")) {
 			continue;
@@ -41,7 +41,31 @@ async function handleBotDayActions(game) {
 
 		switch (role.name) {
 			case "Atirador": {
-				//TODO:
+				const { _, skillUsage } = game.playerSkillUsage.get(playerId) || {};
+				if (skillUsage >= 2) {
+					break;
+				}
+
+				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
+				const randomPlayer =
+					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+
+				const hasDecidedToShoot = Math.random() < 0.5;
+
+				if (hasDecidedToShoot) {
+					//TODO:get user or bot from id
+					const targetRole = game.playerRoles.get(randomPlayer);
+
+					if (!randomPlayer.includes("bot_")) {
+						const target = await interaction.client.users.fetch(randomPlayer);
+						game.deadPlayers.set(target.username, targetRole.name);
+					} else {
+						const { _, username } = game.botUsers.get(randomPlayer);
+						game.deadPlayers.set(username, targetRole.name);
+					}
+					game.playerSkillUsage.set(playerId, skillUsage + 1);
+					game.players.delete(randomPlayer);
+				}
 				break;
 			}
 			default:
@@ -49,6 +73,7 @@ async function handleBotDayActions(game) {
 		}
 	}
 }
+
 async function handleBotNightActions(game) {
 	for (const [playerId, role] of game.playerRoles) {
 		if (!playerId.includes("bot_")) {
