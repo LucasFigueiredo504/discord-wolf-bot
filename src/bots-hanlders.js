@@ -53,7 +53,6 @@ async function handleBotDayActions(interaction, game) {
 				const hasDecidedToShoot = Math.random() < 0.5;
 
 				if (hasDecidedToShoot) {
-					
 					const targetRole = game.playerRoles.get(randomPlayer);
 
 					if (!randomPlayer.includes("bot_")) {
@@ -79,6 +78,10 @@ async function handleBotNightActions(game) {
 		if (!playerId.includes("bot_")) {
 			continue;
 		}
+		if (game.cantUseSkill.get(playerId)) {
+			game.cantUseSkill.delete(playerId);
+			continue;
+		}
 
 		switch (role.name) {
 			case "Lobo": {
@@ -96,32 +99,42 @@ async function handleBotNightActions(game) {
 				break;
 			}
 			case "Cortesã":
-				{//visit
-				const canUseSkill =
-					game.cantUseSkill.get(playerId) === undefined ||
-					!game.cantUseSkill.get(playerId);
-				if (!canUseSkill) {
-					break;
-				}
-				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
-				const randomPlayer =
-					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+				{
+					//visit
+					const canUseSkill =
+						game.cantUseSkill.get(playerId) === undefined ||
+						!game.cantUseSkill.get(playerId);
+					if (!canUseSkill) {
+						break;
+					}
+					const eligiblePlayers = [...game.players].filter(
+						(p) => p !== playerId,
+					);
+					const randomPlayer =
+						eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
 
-				game.nightSkills.set(playerId, randomPlayer);}
+					//game.nightSkills.set(playerId, randomPlayer);
+					const foundedRole = game.playerRoles.get(randomPlayer);
+				}
 				break;
 			case "Vidente":
-				{//seer
-				const canUseSkill =
-					game.cantUseSkill.get(playerId) === undefined ||
-					!game.cantUseSkill.get(playerId);
-				if (!canUseSkill) {
-					break;
-				}
-				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
-				const randomPlayer =
-					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+				{
+					//seer
+					const canUseSkill =
+						game.cantUseSkill.get(playerId) === undefined ||
+						!game.cantUseSkill.get(playerId);
+					if (!canUseSkill) {
+						break;
+					}
+					const eligiblePlayers = [...game.players].filter(
+						(p) => p !== playerId,
+					);
+					const randomPlayer =
+						eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
 
-				game.nightSkills.set(playerId, randomPlayer);}
+					//game.nightSkills.set(playerId, randomPlayer);
+					const foundedRole = game.playerRoles.get(randomPlayer);
+				}
 				break;
 			default:
 				break;
@@ -140,7 +153,7 @@ async function handleBotVoting(game) {
 			game.votes.set(player, randomPlayer);
 
 			if (game.playerRoles.get(player).name === "Prefeito") {
-				game.votes.set(player, randomPlayer);
+				game.votes.set(`${player}-1`, randomPlayer);
 			}
 		}
 	}

@@ -44,7 +44,7 @@ module.exports = {
 
 		if (!game.votes) game.votes = new Map();
 		if (game.playersRoles.get(interaction.user.id) === "Prefeito") {
-			game.votes.set(interaction.user.id, target.id);
+			game.votes.set(`${interaction.user.id}-1`, target.id);
 		}
 		game.votes.set(interaction.user.id, target.id);
 

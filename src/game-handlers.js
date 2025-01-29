@@ -231,10 +231,12 @@ async function handleNewRound(interaction) {
 			}
 		}
 	}
+	await displayWhoIsAlive(interaction, game);
+	await wait(5000);
 
 	// Start the game
 	game.status = "night";
-	await handleResetSkillBlocks(game);
+
 	const nightEmbed = new EmbedBuilder()
 		.setColor(0x000066)
 		.setTitle("🌙 A noite chegou!")
@@ -245,14 +247,17 @@ async function handleNewRound(interaction) {
 
 	await interaction.followUp({ embeds: [nightEmbed], components: [] });
 
-	// Wait 30 seconds before morning
+	// Wait 40 seconds before morning
 	await wait(5000);
+	await interaction.followUp(
+		"Jogadores tem 40 segundos para realizarem suas ações!",
+	);
 
 	// Private message during night
 	await sendPrivateNightMessages(interaction, game);
 	handleBotNightActions(game);
 
-	await wait(30000);
+	await wait(40000);
 
 	// Morning phase
 	game.status = "morning-results";
@@ -294,30 +299,7 @@ async function handleNewRound(interaction) {
 
 	await wait(4000);
 	//shows who is alive and who is dead
-	let playersAliveDescription = "";
-	for (const playerId of game.players) {
-		if (!playerId.includes("bot_")) {
-			const user = await interaction.client.users.fetch(playerId);
-			const role = await game.playerRoles.get(playerId);
-			playersAliveDescription += `🧑 ${user.username}-${role.name}\n`;
-		} else {
-			const [_, username] = [playerId, game.botUsers.get(playerId)];
-			const role = await game.playerRoles.get(playerId);
-			//puts the name of the bot
-			playersAliveDescription += `🧑 ${username}-${role.name}\n`;
-		}
-	}
-	if (game.deadPlayers !== undefined) {
-		for (const [playerUsername, role] of game.deadPlayers) {
-			playersAliveDescription += `💀 ${playerUsername}-${role}\n`;
-		}
-	}
-	const playersAliveEmbed = new EmbedBuilder()
-		.setColor(0xffff00)
-		.setTitle("Jogadores vivos")
-		.setDescription(playersAliveDescription);
-
-	await interaction.followUp({ embeds: [playersAliveEmbed] });
+	await displayWhoIsAlive(interaction, game);
 	await wait(4000);
 	await interaction.followUp(
 		"Votação para decidir quem vai para forca começa em 30 segundos",
@@ -374,7 +356,7 @@ async function handleVotingResults(interaction) {
 			await interaction.followUp(
 				`A vila votou! ${username} foi enforcado!\n ${username} era o ${eliminatedRole.name}`,
 			);
-			game.deadPlayers.set(username, eliminatedRole);
+			game.deadPlayers.set(username, eliminatedRole.name);
 		} else {
 			const eliminatedUser = await interaction.client.users.fetch(eliminated);
 			const eliminatedRole = game.playerRoles.get(eliminated);
@@ -390,7 +372,7 @@ async function handleVotingResults(interaction) {
 	} else {
 		await interaction.followUp("Ninguém foi eliminado - houve um empate!");
 	}
-
+	game.votes.clear();
 	await checkEndGameStatus(interaction, game);
 
 	if (gameManager.getGame(interaction.channelId)) {
@@ -483,12 +465,6 @@ async function sendPrivateDayMessages(interaction, game) {
 	}
 }
 
-async function handleResetSkillBlocks(game) {
-	game.cantUseSkill.forEach((userId, state) => {
-		cantUseSkill.delete(userId);
-	});
-}
-
 async function handleNightSKillsResults(interaction) {
 	const game = gameManager.getGame(interaction.channelId);
 	const skills = Array.from(game.nightSkills.entries());
@@ -579,6 +555,7 @@ async function handleNightSKillsResults(interaction) {
 			}
 		}
 	}
+	game.nightSkills.clear();
 	return false;
 }
 
@@ -613,6 +590,33 @@ async function checkEndGameStatus(interaction, game) {
 			return;
 		}
 	}
+}
+
+async function displayWhoIsAlive(interaction, game) {
+	let playersAliveDescription = "";
+	for (const playerId of game.players) {
+		if (!playerId.includes("bot_")) {
+			const user = await interaction.client.users.fetch(playerId);
+			const role = await game.playerRoles.get(playerId);
+			playersAliveDescription += `🧑 ${user.username}-${role.name}\n`;
+		} else {
+			const [_, username] = [playerId, game.botUsers.get(playerId)];
+			const role = await game.playerRoles.get(playerId);
+			//puts the name of the bot
+			playersAliveDescription += `🧑 ${username}-${role.name}\n`;
+		}
+	}
+	if (game.deadPlayers !== undefined) {
+		for (const [playerUsername, role] of game.deadPlayers) {
+			playersAliveDescription += `💀 ${playerUsername}-${role}\n`;
+		}
+	}
+	const playersAliveEmbed = new EmbedBuilder()
+		.setColor(0xffff00)
+		.setTitle("Jogadores vivos")
+		.setDescription(playersAliveDescription);
+
+	await interaction.followUp({ embeds: [playersAliveEmbed] });
 }
 
 module.exports = {

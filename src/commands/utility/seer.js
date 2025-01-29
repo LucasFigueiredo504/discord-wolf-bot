@@ -52,6 +52,17 @@ module.exports = {
 			});
 		}
 
+		const canUseSkill =
+			game.cantUseSkill.get(interaction.user.id) === undefined ||
+			!game.cantUseSkill.get(interaction.user.id);
+
+		if (!canUseSkill) {
+			return await interaction.reply({
+				content: "Você não pode usar este comando agora!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
 		if (!game.nightSkills) {
 			game.nightSkills = new Map();
 		}
