@@ -166,7 +166,7 @@ async function handleNightKills(interaction) {
 		if (targetId) {
 			const userRole = game.playerRoles.get(userId);
 			if (!targetId.includes("bot_")) {
-				const victimUser = game.botUsers.get(targetId);
+				const victimUser = await interaction.client.users.fetch(targetId);
 				const victimRole = game.playerRoles.get(targetId);
 
 				if (victimRole.name === "Bêbado" && userRole.name === "Lobo") {
