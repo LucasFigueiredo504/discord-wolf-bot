@@ -619,6 +619,36 @@ async function displayWhoIsAlive(interaction, game) {
 	await interaction.followUp({ embeds: [playersAliveEmbed] });
 }
 
+async function handlePlayersAutocomplete(
+	game,
+	interaction,
+	focusedValue,
+	choices,
+) {
+	for (const id of game.players) {
+		let name;
+		if (id.includes("bot_")) {
+			for (const [key, value] of game.botUsers.entries()) {
+				if (key === id) {
+					name = value;
+				}
+			}
+		} else {
+			try {
+				const user = await interaction.client.users.fetch(id);
+				name = user?.username;
+			} catch (error) {
+				console.error(`Failed to fetch user ${id}:`, error);
+				continue;
+			}
+		}
+
+		if (name?.toLowerCase().includes(focusedValue)) {
+			choices.push({ name: name, value: id });
+		}
+	}
+}
+
 module.exports = {
 	assignRoles,
 	handleNightKills,
@@ -626,4 +656,5 @@ module.exports = {
 	handleNewRound,
 	sendPrivateNightMessages,
 	createBotPlayers,
+	handlePlayersAutocomplete,
 };
