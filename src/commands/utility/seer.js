@@ -97,9 +97,7 @@ module.exports = {
 			interaction.user.id,
 			isTargetABot ? target : target.id,
 		);
-		const { botId = null, username = null } = isTargetABot
-			? game.botUsers.get(target)
-			: {};
+		const username = isTargetABot ? game.botUsers.get(target) : null;
 
 		await interaction.reply({
 			content: `Voto para prever o papel de ${isTargetABot ? username : target.username} foi registrado!`,

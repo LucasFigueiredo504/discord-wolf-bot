@@ -104,9 +104,7 @@ module.exports = {
 		}
 
 		const targetRole = game.playerRoles.get(isTargetABot ? target : target.id);
-		const { botId = null, username = null } = isTargetABot
-			? game.botUsers.get(target)
-			: {};
+		const username = isTargetABot ? game.botUsers.get(target) : null;
 
 		game.playerSkillUsage.set(interaction.user.id, skillUsage + 1);
 		game.deadPlayers.set(

@@ -47,9 +47,12 @@ module.exports = {
 			});
 		}
 		let target = null;
+		let isTargetABot = false;
 		if (interaction.options.getString("jogador").includes("bot_")) {
 			target = interaction.options.getString("jogador");
+			isTargetABot = true;
 		} else {
+			isTargetABot = false;
 			target = interaction.options.getUser("jogador");
 
 			if (target.id !== interaction.user.id) {
@@ -81,10 +84,7 @@ module.exports = {
 			);
 		}
 		game.votes.set(interaction.user.id, isTargetABot ? target : target.id);
-
-		const { botId = null, username = null } = isTargetABot
-			? game.botUsers.get(target)
-			: {};
+		const username = isTargetABot ? game.botUsers.get(target) : null;
 
 		await interaction.reply({
 			content: `Seu voto em ${isTargetABot ? username : target.username} foi registrado!`,
