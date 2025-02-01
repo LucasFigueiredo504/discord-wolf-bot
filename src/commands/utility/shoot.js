@@ -38,6 +38,13 @@ module.exports = {
 	async execute(interaction) {
 		const game = gameManager.getGame(interaction.channelId);
 
+		if (!game.players.has(interaction.options.getString("jogador"))) {
+			return await interaction.reply({
+				content: "Este jogador não é válido!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
 		const userRole = game.playerRoles.get(interaction.user.id);
 
 		let target = null;
@@ -46,7 +53,9 @@ module.exports = {
 			target = interaction.options.getString("jogador");
 			isTargetABot = true;
 		} else {
-			target = interaction.options.getUser("jogador");
+			target = await interaction.client.users.fetch(
+				interaction.options.getString("jogador"),
+			);
 			isTargetABot = false;
 			if (target.id === interaction.user.id) {
 				return await interaction.reply({

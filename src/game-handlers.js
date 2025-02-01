@@ -174,6 +174,18 @@ async function handleNightKills(interaction) {
 					game.cantUseSkill.set(userId, true);
 				}
 
+				const killedEmbed = new EmbedBuilder()
+					.setColor(0x000066)
+					.setDescription("Você virou janta do lobo!")
+					.setImage(
+						"https://i.pinimg.com/originals/8d/17/a6/8d17a66e3c8eb6077a81ebf79814ced9.gif",
+					);
+				try {
+					await victimUser.send({ embeds: [killedEmbed], components: [] });
+				} catch (error) {
+					console.error(`Couldn't send DM to wolf ${victimUser.username}`);
+				}
+
 				// Remove player from game
 				game.players.delete(targetId);
 				game.deadPlayers.set(victimUser.username, victimRole.name);
@@ -481,7 +493,7 @@ async function handleNightSKillsResults(interaction) {
 		if (targetId) {
 			const targetUser =
 				!isTargetABot && (await interaction.client.users.fetch(targetId));
-			const { _, username } = !isTargetABot && game.botUsers.get(targetId);
+			const username = !isTargetABot && game.botUsers.get(targetId);
 
 			const targetRole = game.playerRoles.get(targetId);
 
@@ -565,17 +577,40 @@ async function checkEndGameStatus(interaction, game) {
 			const playerRole = game.playerRoles.get(player).name;
 			if (playerRole === "Lobo") {
 				gameManager.removeGame(interaction.channelId);
-				await interaction.followUp("O jogo acabou! O Lobo venceu!");
+				const wolfEmbed = new EmbedBuilder()
+					.setColor(0xffff00)
+					.setTitle("O jogo acabou! O Lobo venceu!")
+					.setImage(
+						"https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExYnhpNnc2N2I2OWoyYzJsNWs1eW41ajhsYjAwYzNkNHN4bWdhMnVhNyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/tiP6DWUdHhvck/giphy.gif",
+					);
+
+				await interaction.followUp({
+					embeds: [wolfEmbed],
+					components: [],
+				});
 				return;
 			}
 			if (playerRole === "Assassino") {
 				gameManager.removeGame(interaction.channelId);
-				await interaction.followUp("O jogo acabou! O Assassino venceu!");
+				const killerEmbed = new EmbedBuilder()
+					.setColor(0xffff00)
+					.setTitle("O jogo acabou! O assassino venceu!")
+					.setImage("	https://i.giphy.com/8cqVIPHCKLhfO.webp");
+
+				await interaction.followUp({ embeds: [killerEmbed], components: [] });
+
 				return;
 			}
 		}
 		gameManager.removeGame(interaction.channelId);
-		await interaction.followUp("O jogo acabou! A vila venceu!");
+		const villageEmbed = new EmbedBuilder()
+			.setColor(0xffff00)
+			.setTitle("O jogo acabou! A vila venceu!")
+			.setImage(
+				"https://www.lascosasquenoshacenfelices.com/wp-content/uploads/2021/08/angrymob.gif",
+			);
+
+		await interaction.followUp({ embeds: [villageEmbed], components: [] });
 	} else {
 		const hasWolf = [...game.playerRoles.values()].find(
 			(r) => r.name === "Lobo",
@@ -586,7 +621,14 @@ async function checkEndGameStatus(interaction, game) {
 
 		if (!hasWolf && !hasKiller) {
 			gameManager.removeGame(interaction.channelId);
-			await interaction.followUp("O jogo acabou! A vila venceu!");
+			const villageEmbed = new EmbedBuilder()
+				.setColor(0xffff00)
+				.setTitle("O jogo acabou! A vila venceu!")
+				.setImage(
+					"https://www.lascosasquenoshacenfelices.com/wp-content/uploads/2021/08/angrymob.gif",
+				);
+
+			await interaction.followUp({ embeds: [villageEmbed], components: [] });
 			return;
 		}
 	}
@@ -598,17 +640,17 @@ async function displayWhoIsAlive(interaction, game) {
 		if (!playerId.includes("bot_")) {
 			const user = await interaction.client.users.fetch(playerId);
 			const role = await game.playerRoles.get(playerId);
-			playersAliveDescription += `🧑 ${user.username}-${role.name}\n`;
+			playersAliveDescription += `🧑 ${user.username}\n`;
 		} else {
 			const [_, username] = [playerId, game.botUsers.get(playerId)];
 			const role = await game.playerRoles.get(playerId);
 			//puts the name of the bot
-			playersAliveDescription += `🧑 ${username}-${role.name}\n`;
+			playersAliveDescription += `🧑 ${username}\n`;
 		}
 	}
 	if (game.deadPlayers !== undefined) {
 		for (const [playerUsername, role] of game.deadPlayers) {
-			playersAliveDescription += `💀 ${playerUsername}-${role}\n`;
+			playersAliveDescription += `💀 ${playerUsername}\n`;
 		}
 	}
 	const playersAliveEmbed = new EmbedBuilder()
@@ -634,6 +676,9 @@ async function handlePlayersAutocomplete(
 				}
 			}
 		} else {
+			if (id === interaction.user.id) {
+				continue;
+			}
 			try {
 				const user = await interaction.client.users.fetch(id);
 				name = user?.username;

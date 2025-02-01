@@ -46,6 +46,14 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
+
+		if (!game.players.has(interaction.options.getString("jogador"))) {
+			return await interaction.reply({
+				content: "Este jogador não é válido!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
 		let target = null;
 		let isTargetABot = false;
 		if (interaction.options.getString("jogador").includes("bot_")) {
@@ -53,18 +61,14 @@ module.exports = {
 			isTargetABot = true;
 		} else {
 			isTargetABot = false;
-			target = interaction.options.getUser("jogador");
+			target = await interaction.client.users.fetch(
+				interaction.options.getString("jogador"),
+			);
 
-			if (target.id !== interaction.user.id) {
+			if (target.id === interaction.user.id) {
+				console.log(target.id, interaction.user.id);
 				return await interaction.reply({
 					content: "Você não pode usar esse em você mesmo!",
-					flags: MessageFlags.Ephemeral,
-				});
-			}
-
-			if (!game.players.has(target.id)) {
-				return await interaction.reply({
-					content: "Este jogador não está participando do jogo!",
 					flags: MessageFlags.Ephemeral,
 				});
 			}
@@ -85,10 +89,10 @@ module.exports = {
 		}
 		game.votes.set(interaction.user.id, isTargetABot ? target : target.id);
 		const username = isTargetABot ? game.botUsers.get(target) : null;
-
+		const user = await interaction.client.users.fetch(interaction.user.id);
 		await interaction.reply({
-			content: `Seu voto em ${isTargetABot ? username : target.username} foi registrado!`,
-			flags: MessageFlags.Ephemeral,
+			content: `${user.username} votou em ${isTargetABot ? username : target.username}!`,
+			//flags: MessageFlags.Ephemeral,
 		});
 	},
 };
