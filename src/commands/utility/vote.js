@@ -40,6 +40,13 @@ module.exports = {
 
 	async execute(interaction) {
 		const game = gameManager.getGame(interaction.channelId);
+
+		if (!game.players) {
+			return await interaction.reply({
+				content: "Ocorreu um erro!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 		if (!game || game.status !== "voting") {
 			return await interaction.reply({
 				content: "Não há uma votação em andamento no momento!",
@@ -81,7 +88,7 @@ module.exports = {
 		}
 
 		if (!game.votes) game.votes = new Map();
-		if (game.playerRoles.get(interaction.user.id) === "Prefeito") {
+		if (game.playerRoles.get(interaction.user.id).name === "Prefeito") {
 			game.votes.set(
 				`${interaction.user.id}-1`,
 				isTargetABot ? target : target.id,

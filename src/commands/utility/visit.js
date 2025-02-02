@@ -38,6 +38,12 @@ module.exports = {
 	async execute(interaction) {
 		const game = gameManager.getGame(interaction.channelId);
 
+		if (!game.players) {
+			return await interaction.reply({
+				content: "Ocorreu um erro!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 		if (!game.players.has(interaction.options.getString("jogador"))) {
 			return await interaction.reply({
 				content: "Este jogador não é válido!",

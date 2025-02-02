@@ -51,7 +51,9 @@ module.exports = {
 			.setDescription(
 				"A lua sob aos céus simbolizando o perigo se aproximando da vila!",
 			)
-			.setImage("https://i.imgur.com/d1JHPRq.jpeg");
+			.setImage(
+				"https://i.pinimg.com/originals/be/75/55/be7555b15ad63c2d5ec78e5f3142ff49.gif",
+			);
 
 		const response = await interaction.reply({
 			embeds: [gameEmbed],
