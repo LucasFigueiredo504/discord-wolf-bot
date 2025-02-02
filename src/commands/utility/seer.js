@@ -35,6 +35,12 @@ module.exports = {
 	async execute(interaction) {
 		const game = gameManager.getGame(interaction.channelId);
 
+		if (!game.players) {
+			return await interaction.reply({
+				content: "Ocorreu um erro!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 		if (!game.players.has(interaction.options.getString("jogador"))) {
 			return await interaction.reply({
 				content: "Este jogador não é válido!",
@@ -44,7 +50,7 @@ module.exports = {
 
 		const userRole = game.playerRoles.get(interaction.user.id);
 
-		if (userRole.name === "Vidente") {
+		if (userRole.name !== "Vidente") {
 			return await interaction.reply({
 				content: "Você não é um vidente!",
 				flags: MessageFlags.Ephemeral,

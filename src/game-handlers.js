@@ -189,7 +189,7 @@ async function handleNightKills(interaction) {
 				// Remove player from game
 				game.players.delete(targetId);
 				game.deadPlayers.set(victimUser.username, victimRole.name);
-				//game.playerRoles.delete(targetId);
+				game.playerRoles.delete(targetId);
 
 				// Clear night kill votes
 
@@ -207,7 +207,7 @@ async function handleNightKills(interaction) {
 			// Remove player from game
 			game.players.delete(targetId);
 			game.deadPlayers.set(username, victimRole.name);
-			//game.playerRoles.delete(targetId);
+			game.playerRoles.delete(targetId);
 
 			// Clear night kill votes
 
@@ -236,8 +236,14 @@ async function handleNewRound(interaction) {
 				continue;
 			}
 			const player = await interaction.client.users.fetch(playerId);
+
+			const roleEmbed = new EmbedBuilder()
+				.setColor(0xff6600)
+				.setTitle(`${role.icon} ${role.name}`)
+				.setDescription(role.startMessage);
+
 			try {
-				await player.send(role.startMessage);
+				await player.send({ embeds: [roleEmbed], components: [] });
 			} catch (error) {
 				console.error(`Couldn't send DM to ${player.username}`);
 			}
@@ -519,12 +525,14 @@ async function handleNightSKillsResults(interaction) {
 					);
 					game.players.delete(userId);
 					game.deadPlayers.set(skillUser.username, skillUserRole.name);
-					//game.playerRoles.delete(userId);]
+					game.playerRoles.delete(userId);
+					game.nightSkills.delete(userId);
 
 					await interaction.followUp(
 						`Um cheiro podre emana do chiqueiro da vila, ao inspecionar, os aldeões descobrem que se trata da carcaça de ${skillUser.username}!\n Ele era a cortesã.`,
 					);
 					didSomeoneDie = true;
+
 					return didSomeoneDie;
 				}
 				//if cortesain chooses someone being attacked by the wolf
@@ -537,7 +545,9 @@ async function handleNightSKillsResults(interaction) {
 					);
 					game.players.delete(userId);
 					game.deadPlayers.set(skillUser.username, skillUserRole.name);
-					//game.playerRoles.delete(userId);]
+					game.playerRoles.delete(userId);
+					game.nightSkills.delete(userId);
+
 					await interaction.followUp(
 						`Um cheiro podre emana do chiqueiro da vila, ao inspecionar, os aldeões descobrem que se trata da carcaça de ${skillUser.username}!\n Ele era a cortesã.`,
 					);
@@ -550,6 +560,7 @@ async function handleNightSKillsResults(interaction) {
 						console.error(`Couldn't send DM to wolf ${wolf.username}`);
 					}
 					didSomeoneDie = true;
+
 					return didSomeoneDie;
 				}
 				await skillUser.send(
