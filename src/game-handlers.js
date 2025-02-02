@@ -330,7 +330,7 @@ async function handleNewRound(interaction) {
 		);
 
 	await interaction.followUp({ embeds: [morningEmbed] });
-	await handleBotVoting(game);
+	await handleBotVoting(interaction, game);
 	// Wait 60 seconds for voting
 	await wait(60000);
 

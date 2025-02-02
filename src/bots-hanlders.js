@@ -5,6 +5,7 @@ const {
 	ActionRowBuilder,
 	MessageFlags,
 } = require("discord.js");
+const wait = require("node:timers/promises").setTimeout;
 
 const gameManager = require("./game-state");
 
@@ -142,7 +143,7 @@ async function handleBotNightActions(game) {
 	}
 }
 
-async function handleBotVoting(game) {
+async function handleBotVoting(interaction, game) {
 	for (const player of game.players) {
 		if (player.includes("bot_")) {
 			const eligiblePlayers = [...game.players].filter((p) => p !== player);
@@ -152,9 +153,17 @@ async function handleBotVoting(game) {
 
 			game.votes.set(player, randomPlayer);
 
+			const botName = game.botUsers.get(player);
+			const targetName = randomPlayer.includes("bot_")
+				? game.botUsers.get(randomPlayer)
+				: (await interaction.client.users.fetch(randomPlayer)).username;
+
+			await interaction.followUp(`${botName} votou em ${targetName}`);
+
 			if (game.playerRoles.get(player).name === "Prefeito") {
 				game.votes.set(`${player}-1`, randomPlayer);
 			}
+			await wait(Math.floor(Math.random() * (5000 - 3000 + 1)) + 3000);
 		}
 	}
 }
