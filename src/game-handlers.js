@@ -576,6 +576,17 @@ async function checkEndGameStatus(interaction, game) {
 		for (const player of game.players) {
 			const playerRole = game.playerRoles.get(player).name;
 			if (playerRole === "Lobo") {
+				let name = "";
+				if (game.botUsers.get(player).includes("bot_")) {
+					name = game.botUsers.get(player);
+				} else {
+					name = await interaction.client.users.fetch(player).username;
+				}
+				if (game.players.size === 2) {
+					await interaction.followUp(
+						`De repente presas e garras começam a surgir em ${name}, que então, parte para devorar o último sobrevivente!`,
+					);
+				}
 				gameManager.removeGame(interaction.channelId);
 				const wolfEmbed = new EmbedBuilder()
 					.setColor(0xffff00)
