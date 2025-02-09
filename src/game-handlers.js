@@ -240,10 +240,12 @@ async function handleNightKills(interaction) {
 
 				continue;
 			}
+			if (!game.players.has(targetId)) {
+				continue;
+			}
 			const [_, username] = [targetId, game.botUsers.get(targetId)];
 			const victimRole = game.playerRoles.get(targetId).name;
 
-			console.log(victimRole);
 			if (victimRole === "Bêbado" && userRole === "Lobo") {
 				//handle drunk wolf
 				game.cantUseSkill.set(userId, true);
