@@ -30,11 +30,13 @@ module.exports = {
 			deadPlayers: new Map(),
 			status: "waiting",
 			startTime: Date.now(),
+			hasUsedSkill: new Set(),
 			votes: new Map(),
 			playerRoles: null,
 			nightKill: new Map(),
 			nightSkills: new Map(),
 			playerSkillUsage: new Map(),
+			nightProtection: new Map(),
 			cantUseSkill: new Map(),
 		};
 		gameManager.setGame(interaction.channelId, gameState);
@@ -68,7 +70,7 @@ module.exports = {
 		const game = gameManager.getGame(interaction.channelId);
 		if (!game) return;
 
-		const botsToAdd = 7 - game.players.size;
+		const botsToAdd = 8 - game.players.size;
 		createBotPlayers(game, botsToAdd);
 		await wait(2000);
 

@@ -51,6 +51,12 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
+		if (game.hasUsedSkill.has(interaction.user.id)) {
+			return await interaction.reply({
+				content: "Você não pode usar esse comando!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
 		const userRole = game.playerRoles.get(interaction.user.id);
 
@@ -112,7 +118,8 @@ module.exports = {
 
 		// Check if target is not a wolf
 		const targetRole = game.playerRoles.get(isTargetABot ? target : target.id);
-		if (targetRole.name === "Lobo") {
+		const targetRoleName = isTargetABot ? targetRole : targetRole.name;
+		if (targetRoleName === "Lobo") {
 			return await interaction.reply({
 				content: "Você não pode atacar outro Lobo!",
 				flags: MessageFlags.Ephemeral,
@@ -126,7 +133,7 @@ module.exports = {
 		game.nightKill.set(interaction.user.id, isTargetABot ? target : target.id);
 
 		const username = isTargetABot ? game.botUsers.get(target) : null;
-
+		game.hasUsedSkill.set(interaction.user.id);
 		await interaction.reply({
 			content: `Seu voto para matar ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,

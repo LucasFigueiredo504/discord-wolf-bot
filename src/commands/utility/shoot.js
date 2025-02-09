@@ -50,6 +50,12 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
+		if (game.hasUsedSkill.has(interaction.user.id)) {
+			return await interaction.reply({
+				content: "Você não pode usar esse comando!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
 		const userRole = game.playerRoles.get(interaction.user.id);
 
@@ -108,12 +114,11 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
-		const { _, skillUsage } =
-			game.playerSkillUsage.get(interaction.user.id) || {};
+		const skillUsage = game.playerSkillUsage.get(interaction.user.id);
 
 		if (skillUsage >= 2) {
 			return await interaction.reply({
-				content: "Você possui mais balas!",
+				content: "Você não possui mais balas!",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -127,7 +132,9 @@ module.exports = {
 			targetRole.name,
 		);
 		game.players.delete(isTargetABot ? target : target.id);
-
+		game.playerRoles.delete(isTargetABot ? target : target.id);
+		//actives shoot cooldown
+		game.hasUsedSkill.set(interaction.user.id);
 		await interaction.reply({
 			content: `Seu voto para atirar em ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,

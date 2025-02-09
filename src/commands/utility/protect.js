@@ -1,18 +1,15 @@
-const { SlashCommandBuilder, MessageFlags } = require("discord.js");
-const wait = require("node:timers/promises").setTimeout;
 const gameManager = require("../../game-state");
+const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const { handlePlayersAutocomplete } = require("../../game-handlers");
 
 module.exports = {
 	data: new SlashCommandBuilder()
-		.setName("visitar")
-		.setDescription(
-			`Se você for a cortesã, escolha um usuario "visitar" durante a noite e descobrir seu papel`,
-		)
+		.setName("proteger")
+		.setDescription("Escole um jogador para proteger durante a noite")
 		.addStringOption((option) =>
 			option
 				.setName("jogador")
-				.setDescription("O jogador que você quer visitar")
+				.setDescription("O jogador que você quer proteger o papel")
 				.setRequired(true)
 				.setAutocomplete(true),
 		),
@@ -56,9 +53,14 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
-
 		const userRole = game.playerRoles.get(interaction.user.id);
 
+		if (userRole.name !== "Anjo da guarda") {
+			return await interaction.reply({
+				content: "Você não é um anjo da guarda!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 		let target = null;
 		let isTargetABot = false;
 		if (interaction.options.getString("jogador").includes("bot_")) {
@@ -69,7 +71,6 @@ module.exports = {
 				interaction.options.getString("jogador"),
 			);
 			isTargetABot = false;
-
 			if (target.id === interaction.user.id) {
 				return await interaction.reply({
 					content: "Você não pode usar esse em você mesmo!",
@@ -84,16 +85,9 @@ module.exports = {
 			}
 		}
 
-		if (userRole.name !== "Cortesã") {
-			return await interaction.reply({
-				content: "Você não pode usar esse comando!",
-				flags: MessageFlags.Ephemeral,
-			});
-		}
-
 		if (!game || game.status !== "night") {
 			return await interaction.reply({
-				content: "Não é possível usar este commando agora!",
+				content: "Não pode usar esse comando agora!",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -116,7 +110,6 @@ module.exports = {
 			});
 		}
 
-		// Store the cortesain visit vote
 		if (!game.nightSkills) {
 			game.nightSkills = new Map();
 		}
@@ -124,10 +117,14 @@ module.exports = {
 			interaction.user.id,
 			isTargetABot ? target : target.id,
 		);
+		game.nightProtection.set(
+			interaction.user.id,
+			isTargetABot ? target : target.id,
+		);
 		const username = isTargetABot ? game.botUsers.get(target) : null;
 		game.hasUsedSkill.set(interaction.user.id);
 		await interaction.reply({
-			content: `Seu voto para vistar ${isTargetABot ? username : target.username} foi registrado!`,
+			content: `Voto para proteger ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,
 		});
 	},

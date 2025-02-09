@@ -47,6 +47,12 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
+		if (game.hasUsedSkill.has(interaction.user.id)) {
+			return await interaction.reply({
+				content: "Você não pode usar esse comando!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
 		const userRole = game.playerRoles.get(interaction.user.id);
 
@@ -66,7 +72,7 @@ module.exports = {
 				interaction.options.getString("jogador"),
 			);
 			isTargetABot = false;
-			if (target.id !== interaction.user.id) {
+			if (target.id === interaction.user.id) {
 				return await interaction.reply({
 					content: "Você não pode usar esse em você mesmo!",
 					flags: MessageFlags.Ephemeral,
@@ -113,7 +119,7 @@ module.exports = {
 			isTargetABot ? target : target.id,
 		);
 		const username = isTargetABot ? game.botUsers.get(target) : null;
-
+		game.hasUsedSkill.set(interaction.user.id);
 		await interaction.reply({
 			content: `Voto para prever o papel de ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,

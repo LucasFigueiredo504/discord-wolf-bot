@@ -18,7 +18,7 @@ const roles = [
 	{
 		name: "Lobo",
 		icon: "🐺",
-		proportion: 7,
+		proportion: 4,
 		max: 3,
 		startMessage:
 			"Você é o lobo, uma maldição antiga transformou você em uma besta insaciável por carne humana. Saia durante a noite e caçe todos até que não sobre ninguém!",
@@ -90,6 +90,27 @@ const roles = [
 		dayMessage:
 			"O dia chegou, pegue sua arma e use /tiro jogador para matar alguém",
 	},
+	{
+		name: "Anjo da guarda",
+		icon: "👼",
+		proportion: 8,
+		max: 1,
+		startMessage:
+			"Você é o anjo da guarda, joga pela vila, você pode escolher um jogador por noite para proteger contra os males",
+		nightMessage:
+			"As trevas da noite se aproximam... Use /proteger para proteger alguém esta noite",
+		dayMessage: "",
+	},
+	/* 	{
+		name: "Assassino",
+		icon: "🔪",
+		proportion: 10,
+		max: 1,
+		startMessage:
+			"Você é o assassino, joga por sí mesmo, apenas se importa com aumentar sua coleção de corpos",
+		nightMessage: "A noite chegou, pegue sua faca e vá atrás de suas vítimas",
+		dayMessage: "",
+	}, */
 ];
 
 async function assignRoles(players) {
@@ -107,35 +128,46 @@ async function assignRoles(players) {
 
 	// Calculate desired count for each role based on proportion
 	const roleDistribution = roles.map((role) => {
-		const desiredCount = Math.floor(role.proportion / playerCount);
+		const desiredCount = Math.floor(playerCount / role.proportion);
 		return {
 			...role,
-			// Limit count by max value and available players
 			targetCount: Math.min(
 				desiredCount,
 				role.max,
-				role.name === "Aldeão" ? playerCount / 3 : playerCount - 1, // Reserve space for other roles
+				role.name === "Aldeão" ? Math.floor(playerCount / 3) : playerCount - 1,
 			),
 		};
 	});
 
-	// First, assign mandatory roles
-	const mandatoryRoles = ["Lobo", "Vidente"];
-	for (const roleName of mandatoryRoles) {
-		const role = roleDistribution.find((r) => r.name === roleName);
-		if (role && availablePlayers.length > 0) {
+	// Ensure at least one Vidente (mandatory role)
+	const videnteRole = roleDistribution.find((r) => r.name === "Vidente");
+	if (videnteRole && availablePlayers.length > 0) {
+		const randomIndex = Math.floor(Math.random() * availablePlayers.length);
+		const selectedPlayer = availablePlayers.splice(randomIndex, 1)[0];
+		playerRoles.set(selectedPlayer, videnteRole);
+	}
+
+	// Assign wolves first based on proportion
+	const wolfRole = roleDistribution.find((r) => r.name === "Lobo");
+	if (wolfRole) {
+		const wolfCount = wolfRole.targetCount;
+		for (let i = 0; i < wolfCount && availablePlayers.length > 0; i++) {
 			const randomIndex = Math.floor(Math.random() * availablePlayers.length);
 			const selectedPlayer = availablePlayers.splice(randomIndex, 1)[0];
-			playerRoles.set(selectedPlayer, role);
+			playerRoles.set(selectedPlayer, wolfRole);
 		}
 	}
 
 	// Then assign other roles based on proportion and max limits
 	for (const role of roleDistribution) {
-		// Skip mandatory roles as they're already assigned
-		if (mandatoryRoles.includes(role.name)) continue;
-		// Skip Aldeão as it will be assigned to remaining players
-		if (role.name === "Aldeão") continue;
+		// Skip roles that were already handled
+		if (
+			role.name === "Lobo" ||
+			role.name === "Vidente" ||
+			role.name === "Aldeão"
+		) {
+			continue;
+		}
 
 		const remainingCount = Math.min(role.targetCount, availablePlayers.length);
 
@@ -151,7 +183,6 @@ async function assignRoles(players) {
 	for (const player of availablePlayers) {
 		playerRoles.set(player, villagerRole);
 	}
-
 	return playerRoles;
 }
 
@@ -164,12 +195,27 @@ async function handleNightKills(interaction) {
 
 	for (const [userId, targetId] of targets) {
 		if (targetId) {
-			const userRole = game.playerRoles.get(userId);
+			const userRole = userId.includes("bot_")
+				? game.playerRoles.get(userId)
+				: game.playerRoles.get(userId).name;
+
+			if (game.nightProtection.has(targetId)) {
+				game.nightProtection.delete(targetId);
+				if (!userId.includes("bot_")) {
+					//sets a message for the wolf
+					game.nightSkills.set(
+						userId,
+						"Na noite passada você invadiu a casa do seu alvo, quando estava prestes a desferir seu ataque, uma forte luz surge em sua frente na forma de um anjo. Você se assusta e foge pela janela",
+					);
+				}
+				continue;
+			}
+
 			if (!targetId.includes("bot_")) {
 				const victimUser = await interaction.client.users.fetch(targetId);
 				const victimRole = game.playerRoles.get(targetId);
 
-				if (victimRole.name === "Bêbado" && userRole.name === "Lobo") {
+				if (victimRole.name === "Bêbado" && userRole === "Lobo") {
 					//handle drunk wolf
 					game.cantUseSkill.set(userId, true);
 				}
@@ -186,6 +232,7 @@ async function handleNightKills(interaction) {
 					console.error(`Couldn't send DM to wolf ${victimUser.username}`);
 				}
 
+				victms.push({ user: victimUser, role: victimRole.name });
 				// Remove player from game
 				game.players.delete(targetId);
 				game.deadPlayers.set(victimUser.username, victimRole.name);
@@ -193,25 +240,24 @@ async function handleNightKills(interaction) {
 
 				// Clear night kill votes
 
-				victms.push({ user: victimUser, role: victimRole });
 				continue;
 			}
 			const [_, username] = [targetId, game.botUsers.get(targetId)];
 			const victimRole = game.playerRoles.get(targetId);
 
-			if (victimRole.name === "Bêbado" && userRole.name === "Lobo") {
+			if (victimRole === "Bêbado" && userRole === "Lobo") {
 				//handle drunk wolf
 				game.cantUseSkill.set(userId, true);
+				console.log("Churras", victimRole);
 			}
 
+			victms.push({ user: { username: username }, role: victimRole.name });
 			// Remove player from game
 			game.players.delete(targetId);
-			game.deadPlayers.set(username, victimRole.name);
+			game.deadPlayers.set(username, victimRole);
 			game.playerRoles.delete(targetId);
 
 			// Clear night kill votes
-
-			victms.push({ user: { username: username }, role: victimRole });
 		}
 	}
 	game.nightKill.clear();
@@ -268,14 +314,14 @@ async function handleNewRound(interaction) {
 	// Wait 40 seconds before morning
 	await wait(5000);
 	await interaction.followUp(
-		"Jogadores tem 40 segundos para realizarem suas ações!",
+		"Jogadores tem 60 segundos para realizarem suas ações!",
 	);
 
 	// Private message during night
 	await sendPrivateNightMessages(interaction, game);
 	handleBotNightActions(game);
 
-	await wait(40000);
+	await wait(60000);
 
 	// Morning phase
 	game.status = "morning-results";
@@ -287,6 +333,8 @@ async function handleNewRound(interaction) {
 		.setImage(
 			"https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHh5bG15Z3RxcjMybHU0em1wN3dmOHV2aDM3YjFwMXhkM2JsMWw3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uFmH8za4E6M5STIiTu/giphy.gif",
 		);
+	await wait(2000);
+	await handleBotDayActions(interaction, game);
 
 	await interaction.followUp({ embeds: [morningAnoucementEmbed] });
 	await wait(4000);
@@ -300,7 +348,7 @@ async function handleNewRound(interaction) {
 	if (nightKillResults.length > 0) {
 		morningDescription += "\n\n💀 Durante a noite...\n";
 		for (let i = 0; i < nightKillResults.length; i++) {
-			morningDescription += `${nightKillResults[i].user.username} foi encontrado morto! Eles eram um ${nightKillResults[i].role.name}!`;
+			morningDescription += `${nightKillResults[i].user.username} foi encontrado morto! Eles eram um ${nightKillResults[i].role}!\n`;
 		}
 		await interaction.followUp(morningDescription);
 	} else {
@@ -339,7 +387,7 @@ async function handleNewRound(interaction) {
 	await handleBotVoting(interaction, game);
 	// Wait 60 seconds for voting
 	await wait(60000);
-
+	game.hasUsedSkill.clear();
 	// Handle voting results
 	await handleVotingResults(interaction);
 }
@@ -355,17 +403,33 @@ async function handleVotingResults(interaction) {
 		voteCounts.set(votedFor, currentCount + 1);
 	});
 
-	// Find player with most votes
+	// Find player(s) with most votes
 	let maxVotes = 0;
-	let eliminated = null;
+	let playersWithMaxVotes = [];
 
 	voteCounts.forEach((count, playerId) => {
 		if (count > maxVotes) {
 			maxVotes = count;
-			eliminated = playerId;
+			playersWithMaxVotes = [playerId];
+		} else if (count === maxVotes) {
+			playersWithMaxVotes.push(playerId);
 		}
 	});
 
+	// Check for tie
+	if (playersWithMaxVotes.length > 1) {
+		await interaction.followUp("Ninguém foi eliminado - houve um empate!");
+		game.votes.clear();
+		await checkEndGameStatus(interaction, game);
+
+		if (gameManager.getGame(interaction.channelId)) {
+			await wait(15000);
+			await handleNewRound(interaction);
+		}
+		return;
+	}
+
+	const eliminated = playersWithMaxVotes[0];
 	if (eliminated) {
 		if (eliminated.includes("bot_")) {
 			const [_, username] = [eliminated, game.botUsers.get(eliminated)];
@@ -387,9 +451,8 @@ async function handleVotingResults(interaction) {
 		}
 		game.players.delete(eliminated);
 		game.playerRoles.delete(eliminated);
-	} else {
-		await interaction.followUp("Ninguém foi eliminado - houve um empate!");
 	}
+
 	game.votes.clear();
 	await checkEndGameStatus(interaction, game);
 
@@ -413,6 +476,10 @@ async function sendPrivateNightMessages(interaction, game) {
 					const wolf = await interaction.client.users.fetch(wolfId);
 					return wolf.username;
 				}
+				if (wolfId.includes("bot_")) {
+					const username = game.botUsers.get(wolfId);
+					return username;
+				}
 			}),
 		);
 
@@ -425,6 +492,9 @@ async function sendPrivateNightMessages(interaction, game) {
 				game.cantUseSkill.get(wolfId) === undefined ||
 				!game.cantUseSkill.get(wolfId);
 			if (canUseSkill) {
+				const filteredWolfs = wolfList.filter(
+					(wolfName) => wolfName !== wolf.username,
+				);
 				try {
 					await wolf.send(
 						`Você é um Lobo! Outros lobos: ${wolfList.join(", ")}\n` +
@@ -499,7 +569,10 @@ async function handleNightSKillsResults(interaction) {
 		if (targetId) {
 			const targetUser =
 				!isTargetABot && (await interaction.client.users.fetch(targetId));
-			const username = !isTargetABot && game.botUsers.get(targetId);
+			let username = "";
+			if (isTargetABot) {
+				username = game.botUsers.get(targetId);
+			}
 
 			const targetRole = game.playerRoles.get(targetId);
 
@@ -567,14 +640,29 @@ async function handleNightSKillsResults(interaction) {
 					`Após sua visita, você descobriu que ${!isTargetABot ? targetUser.username : username} é o ${targetRole.name}`,
 				);
 			}
-		}
-		//handle drunk wolf message
-		if (skillUserRole.name === "Lobo") {
-			const cantUseSkill = game.cantUseSkill.get(userId);
-			if (cantUseSkill) {
-				await skillUser.send(
-					"Você devorou o bêbado, ele ingeriu tanto alcool que até você ficou bebado ao come-lo e não poderá atacar esta noite!",
-				);
+			if (skillUserRole.name === "Anjo da guarda") {
+				if (!game.nightProtection.has(userId)) {
+					try {
+						await skillUser.send(
+							`Sua proteção foi forte e ${!isTargetABot ? targetUser.username : username} sobreviveu esta noite!`,
+						);
+					} catch (error) {
+						console.error(`Couldn't send DM to wolf ${skillUser.username}`);
+					}
+					continue;
+				}
+				game.nightProtection.delete(userId);
+			}
+			if (skillUserRole.name === "Lobo") {
+				//send wolf message
+				await skillUser.send(targetId);
+
+				const cantUseSkill = game.cantUseSkill.get(userId);
+				if (cantUseSkill) {
+					await skillUser.send(
+						"Você devorou o bêbado, ele ingeriu tanto alcool que até você ficou bebado ao come-lo e não poderá atacar esta noite!",
+					);
+				}
 			}
 		}
 	}
@@ -588,7 +676,7 @@ async function checkEndGameStatus(interaction, game) {
 			const playerRole = game.playerRoles.get(player).name;
 			if (playerRole === "Lobo") {
 				let name = "";
-				if (game.botUsers.get(player).includes("bot_")) {
+				if (player.includes("bot_")) {
 					name = game.botUsers.get(player);
 				} else {
 					name = await interaction.client.users.fetch(player).username;
@@ -610,6 +698,31 @@ async function checkEndGameStatus(interaction, game) {
 					embeds: [wolfEmbed],
 					components: [],
 				});
+				/* //show who was alive
+				let playersAliveDescription = "";
+				for (const playerId of game.players) {
+					if (!playerId.includes("bot_")) {
+						const user = await interaction.client.users.fetch(playerId);
+						const role = await game.playerRoles.get(playerId);
+						playersAliveDescription += `🧑 ${user.username}${role.name}\n`;
+					} else {
+						const [_, username] = [playerId, game.botUsers.get(playerId)];
+						const role = await game.playerRoles.get(playerId);
+						//puts the name of the bot
+						playersAliveDescription += `🧑 ${username}-${role.name}\n`;
+					}
+				}
+				if (game.deadPlayers !== undefined) {
+					for (const [playerUsername, role] of game.deadPlayers) {
+						playersAliveDescription += `💀 ${playerUsername}-${role.name}\n`;
+					}
+				}
+				const playersAliveEmbed = new EmbedBuilder()
+					.setColor(0xffff00)
+					.setTitle("Jogadores vivos")
+					.setDescription(playersAliveDescription);
+
+				await interaction.followUp({ embeds: [playersAliveEmbed] }); */
 				return;
 			}
 			if (playerRole === "Assassino") {
@@ -633,6 +746,31 @@ async function checkEndGameStatus(interaction, game) {
 			);
 
 		await interaction.followUp({ embeds: [villageEmbed], components: [] });
+		//show who was alive
+		/* let playersAliveDescription = "";
+		for (const playerId of game.players) {
+			if (!playerId.includes("bot_")) {
+				const user = await interaction.client.users.fetch(playerId);
+				const role = await game.playerRoles.get(playerId);
+				playersAliveDescription += `🧑 ${user.username}${role.name}\n`;
+			} else {
+				const [_, username] = [playerId, game.botUsers.get(playerId)];
+				const role = await game.playerRoles.get(playerId);
+				//puts the name of the bot
+				playersAliveDescription += `🧑 ${username}-${role.name}\n`;
+			}
+		}
+		if (game.deadPlayers !== undefined) {
+			for (const [playerUsername, role] of game.deadPlayers) {
+				playersAliveDescription += `💀 ${playerUsername}-${role.name}\n`;
+			}
+		}
+		const playersAliveEmbed = new EmbedBuilder()
+			.setColor(0xffff00)
+			.setTitle("Jogadores vivos")
+			.setDescription(playersAliveDescription);
+
+		await interaction.followUp({ embeds: [playersAliveEmbed] }); */
 	} else {
 		const hasWolf = [...game.playerRoles.values()].find(
 			(r) => r.name === "Lobo",
@@ -651,6 +789,31 @@ async function checkEndGameStatus(interaction, game) {
 				);
 
 			await interaction.followUp({ embeds: [villageEmbed], components: [] });
+			//show who was alive
+			/* let playersAliveDescription = "";
+			for (const playerId of game.players) {
+				if (!playerId.includes("bot_")) {
+					const user = await interaction.client.users.fetch(playerId);
+					const role = await game.playerRoles.get(playerId);
+					playersAliveDescription += `🧑 ${user.username}-${role.name}\n`;
+				} else {
+					const [_, username] = [playerId, game.botUsers.get(playerId)];
+					const role = await game.playerRoles.get(playerId);
+					//puts the name of the bot
+					playersAliveDescription += `🧑 ${username}-${role.name}\n`;
+				}
+			}
+			if (game.deadPlayers !== undefined) {
+				for (const [playerUsername, role] of game.deadPlayers) {
+					playersAliveDescription += `💀 ${playerUsername}-${role.name}\n`;
+				}
+			}
+			const playersAliveEmbed = new EmbedBuilder()
+				.setColor(0xffff00)
+				.setTitle("Jogadores vivos")
+				.setDescription(playersAliveDescription);
+
+			await interaction.followUp({ embeds: [playersAliveEmbed] }); */
 			return;
 		}
 	}
@@ -691,6 +854,11 @@ async function handlePlayersAutocomplete(
 ) {
 	for (const id of game.players) {
 		let name;
+		const userRole = game.playerRoles.get(interaction.user.id);
+		const targetRole = game.playerRoles.get(id);
+		if (userRole.name === "Lobo" && targetRole.name === "Lobo") {
+			continue;
+		}
 		if (id.includes("bot_")) {
 			for (const [key, value] of game.botUsers.entries()) {
 				if (key === id) {

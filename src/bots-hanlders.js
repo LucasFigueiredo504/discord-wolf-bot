@@ -12,10 +12,10 @@ const gameManager = require("./game-state");
 function createBotPlayers(game, numberOfBots) {
 	const botNames = [
 		"Foxtrot",
-		"Delta",
-		"Apha",
-		"Bravo",
-		"Beta",
+		"Finn",
+		"Jake",
+		"Marceline",
+		"Benson",
 		"GaMma",
 		"Zeta",
 		"Omega",
@@ -39,10 +39,11 @@ async function handleBotDayActions(interaction, game) {
 		if (!playerId.includes("bot_")) {
 			continue;
 		}
+		const botName = game.botUsers.get(playerId);
 
 		switch (role.name) {
 			case "Atirador": {
-				const { _, skillUsage } = game.playerSkillUsage.get(playerId) || {};
+				const skillUsage = game.playerSkillUsage.get(playerId);
 				if (skillUsage >= 2) {
 					break;
 				}
@@ -56,15 +57,22 @@ async function handleBotDayActions(interaction, game) {
 				if (hasDecidedToShoot) {
 					const targetRole = game.playerRoles.get(randomPlayer);
 
+					let targetName = "";
 					if (!randomPlayer.includes("bot_")) {
-						const target = await interaction.client.users.fetch(randomPlayer);
-						game.deadPlayers.set(target.username, targetRole.name);
+						targetName =
+							await interaction.client.users.fetch(randomPlayer).username;
+						game.deadPlayers.set(targetName, targetRole.name);
 					} else {
-						const { _, username } = game.botUsers.get(randomPlayer);
-						game.deadPlayers.set(username, targetRole.name);
+						targetName = game.botUsers.get(randomPlayer);
+						game.deadPlayers.set(targetName, targetRole);
 					}
 					game.playerSkillUsage.set(playerId, skillUsage + 1);
 					game.players.delete(randomPlayer);
+					game.playerRoles.delete(randomPlayer);
+
+					await interaction.followUp(
+						`💥BAANG! Um tiro ecoa em meio a multidão, se trata de ${botName} que acabou de atirar em ${targetName}!\n ${targetName} era o ${targetRole.name}`,
+					);
 				}
 				break;
 			}
@@ -93,8 +101,13 @@ async function handleBotNightActions(game) {
 					break;
 				}
 				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
+				const eleigiblePlayersByRole = eligiblePlayers.filter(
+					(p) => game.playerRoles.get(p).name !== "Lobo",
+				);
 				const randomPlayer =
-					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+					eleigiblePlayersByRole[
+						Math.floor(Math.random() * eleigiblePlayersByRole.length)
+					];
 
 				game.nightKill.set(playerId, randomPlayer);
 				break;
@@ -137,6 +150,21 @@ async function handleBotNightActions(game) {
 					const foundedRole = game.playerRoles.get(randomPlayer);
 				}
 				break;
+			case "Anjo da guarda": {
+				const canUseSkill =
+					game.cantUseSkill.get(playerId) === undefined ||
+					!game.cantUseSkill.get(playerId);
+				if (!canUseSkill) {
+					break;
+				}
+				const eligiblePlayers = [...game.players].filter((p) => p !== playerId);
+				const randomPlayer =
+					eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
+
+				game.nightSkills.set(playerId, randomPlayer);
+				game.nightProtection.set(playerId, randomPlayer);
+				break;
+			}
 			default:
 				break;
 		}
