@@ -134,7 +134,7 @@ module.exports = {
 		game.players.delete(isTargetABot ? target : target.id);
 		game.playerRoles.delete(isTargetABot ? target : target.id);
 		//actives shoot cooldown
-		game.hasUsedSkill.set(interaction.user.id);
+		game.hasUsedSkill.add(interaction.user.id);
 		await interaction.reply({
 			content: `Seu voto para atirar em ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,

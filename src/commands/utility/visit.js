@@ -125,7 +125,7 @@ module.exports = {
 			isTargetABot ? target : target.id,
 		);
 		const username = isTargetABot ? game.botUsers.get(target) : null;
-		game.hasUsedSkill.set(interaction.user.id);
+		game.hasUsedSkill.add(interaction.user.id);
 		await interaction.reply({
 			content: `Seu voto para vistar ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,

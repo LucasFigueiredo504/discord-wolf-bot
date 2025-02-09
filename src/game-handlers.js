@@ -195,9 +195,7 @@ async function handleNightKills(interaction) {
 
 	for (const [userId, targetId] of targets) {
 		if (targetId) {
-			const userRole = userId.includes("bot_")
-				? game.playerRoles.get(userId)
-				: game.playerRoles.get(userId).name;
+			const userRole = game.playerRoles.get(userId).name;
 
 			if (game.nightProtection.has(targetId)) {
 				game.nightProtection.delete(targetId);
@@ -243,15 +241,16 @@ async function handleNightKills(interaction) {
 				continue;
 			}
 			const [_, username] = [targetId, game.botUsers.get(targetId)];
-			const victimRole = game.playerRoles.get(targetId);
+			const victimRole = game.playerRoles.get(targetId).name;
 
+			console.log(victimRole);
 			if (victimRole === "Bêbado" && userRole === "Lobo") {
 				//handle drunk wolf
 				game.cantUseSkill.set(userId, true);
 				console.log("Churras", victimRole);
 			}
 
-			victms.push({ user: { username: username }, role: victimRole.name });
+			victms.push({ user: { username: username }, role: victimRole });
 			// Remove player from game
 			game.players.delete(targetId);
 			game.deadPlayers.set(username, victimRole);
@@ -333,8 +332,6 @@ async function handleNewRound(interaction) {
 		.setImage(
 			"https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMHh5bG15Z3RxcjMybHU0em1wN3dmOHV2aDM3YjFwMXhkM2JsMWw3MiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uFmH8za4E6M5STIiTu/giphy.gif",
 		);
-	await wait(2000);
-	await handleBotDayActions(interaction, game);
 
 	await interaction.followUp({ embeds: [morningAnoucementEmbed] });
 	await wait(4000);
@@ -357,6 +354,9 @@ async function handleNewRound(interaction) {
 			await interaction.followUp(morningDescription);
 		}
 	}
+	await wait(2000);
+	await handleBotDayActions(interaction, game);
+	await wait(1000);
 	//checks if the game is not over yet
 	await checkEndGameStatus(interaction, game);
 	if (!gameManager.getGame(interaction.channelId)) {
@@ -562,9 +562,22 @@ async function handleNightSKillsResults(interaction) {
 		if (userId.includes("bot_")) {
 			continue;
 		}
-		const isTargetABot = targetId.includes("bot_");
 		const skillUser = await interaction.client.users.fetch(userId);
 		const skillUserRole = game.playerRoles.get(userId);
+
+		if (skillUserRole.name === "Lobo") {
+			//send wolf message
+			await skillUser.send(targetId);
+
+			const cantUseSkill = game.cantUseSkill.get(userId);
+			if (cantUseSkill) {
+				await skillUser.send(
+					"Você devorou o bêbado, ele ingeriu tanto alcool que até você ficou bebado ao come-lo e não poderá atacar esta noite!",
+				);
+			}
+			continue;
+		}
+		const isTargetABot = targetId.includes("bot_");
 
 		if (targetId) {
 			const targetUser =
@@ -652,17 +665,6 @@ async function handleNightSKillsResults(interaction) {
 					continue;
 				}
 				game.nightProtection.delete(userId);
-			}
-			if (skillUserRole.name === "Lobo") {
-				//send wolf message
-				await skillUser.send(targetId);
-
-				const cantUseSkill = game.cantUseSkill.get(userId);
-				if (cantUseSkill) {
-					await skillUser.send(
-						"Você devorou o bêbado, ele ingeriu tanto alcool que até você ficou bebado ao come-lo e não poderá atacar esta noite!",
-					);
-				}
 			}
 		}
 	}

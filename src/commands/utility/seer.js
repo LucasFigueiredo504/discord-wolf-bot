@@ -119,7 +119,7 @@ module.exports = {
 			isTargetABot ? target : target.id,
 		);
 		const username = isTargetABot ? game.botUsers.get(target) : null;
-		game.hasUsedSkill.set(interaction.user.id);
+		game.hasUsedSkill.add(interaction.user.id);
 		await interaction.reply({
 			content: `Voto para prever o papel de ${isTargetABot ? username : target.username} foi registrado!`,
 			flags: MessageFlags.Ephemeral,
