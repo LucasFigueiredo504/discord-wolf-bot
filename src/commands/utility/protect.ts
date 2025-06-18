@@ -138,11 +138,8 @@ export default {
       }
     }
 
-    if (!game.nightSkills) {
-      game.nightSkills = new Map();
-    }
     game.nightSkills.set(interaction.user.id, targetId);
-    game.nightProtection.set(interaction.user.id, true);
+    game.nightProtection.set(targetId, true);
     game.hasUsedSkill.set(interaction.user.id, true);
 
     const username = isTargetABot

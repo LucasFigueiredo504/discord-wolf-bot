@@ -101,10 +101,6 @@ export default {
       return;
     }
 
-    if (!game.votes) {
-      game.votes = new Map();
-    }
-
     const userRole = game.playerRoles.get(interaction.user.id);
     if (userRole?.name === "Prefeito") {
       game.votes.set(`${interaction.user.id}-1`, targetId);

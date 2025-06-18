@@ -12,7 +12,7 @@ export interface Role {
 }
 
 export interface GameState {
-  players: Map<string, User | string>;
+  players: Map<string, string>;
   playerRoles: Map<string, Role>;
   deadPlayers: Map<string, string>;
   nightKill: Map<string, string>;

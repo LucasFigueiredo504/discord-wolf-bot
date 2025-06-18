@@ -264,10 +264,8 @@ async function handleNewRound(
     | GameState
     | undefined;
   if (!game) return;
-  console.log("game");
-  if (!game.cantUseSkill) game.cantUseSkill = new Map();
 
-  if (!game.playerRoles) {
+  if (game.playerRoles.size === 0) {
     game.playerRoles = await assignRoles(game.players);
 
     for (const [playerId, role] of game.playerRoles) {

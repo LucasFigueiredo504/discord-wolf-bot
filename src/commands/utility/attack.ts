@@ -137,9 +137,6 @@ export default {
       return;
     }
 
-    if (!game.nightKill) {
-      game.nightKill = new Map();
-    }
     game.nightKill.set(interaction.user.id, targetId);
     game.hasUsedSkill.set(interaction.user.id, true);
 

@@ -28,7 +28,7 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  game.players.set(interaction.user.id, interaction.user);
+  game.players.set(interaction.user.id, interaction.user.id);
   await interaction.reply({
     content: `${interaction.user.username} entrou no jogo!`,
   });
