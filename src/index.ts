@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   Client,
   Collection,
@@ -43,11 +44,14 @@ for (const folder of commandFolders) {
     .filter((file) => file.endsWith(".ts"));
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    import(filePath)
+    import(pathToFileURL(filePath).href)
       .then((commandModule) => {
         const command = commandModule.default;
         if ("data" in command && "execute" in command) {
           client.commands.set(command.data.name, command);
+          console.log(
+            `[INFO] Successfully loaded command ${command.data.name}`
+          );
         } else {
           console.log(
             `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
@@ -67,7 +71,7 @@ const eventFiles = fs
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
-  import(filePath)
+  import(pathToFileURL(filePath).href)
     .then((eventModule) => {
       const event = eventModule.default;
       if (event.once) {
@@ -75,6 +79,7 @@ for (const file of eventFiles) {
       } else {
         client.on(event.name, (...args: unknown[]) => event.execute(...args));
       }
+      console.log(`[INFO] Successfully loaded event ${event.name}`);
     })
     .catch((error) => {
       console.error(`[ERROR] Failed to load event at ${filePath}:`, error);
@@ -86,4 +91,12 @@ if (!process.env.TOKEN) {
   process.exit(1);
 }
 
-client.login(process.env.TOKEN);
+client
+  .login(process.env.TOKEN)
+  .then(() => {
+    console.log("[INFO] Bot is now connected to Discord");
+  })
+  .catch((error) => {
+    console.error("[ERROR] Failed to log in to Discord:", error);
+    process.exit(1);
+  });
