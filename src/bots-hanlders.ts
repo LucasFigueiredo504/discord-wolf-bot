@@ -68,14 +68,14 @@ async function handleBotDayActions(
               randomPlayer
             );
             targetName = targetUser.username;
-            game.deadPlayers.set(targetName, targetRole.name);
+            game.deadPlayers.set(targetName, targetRole);
           } catch (error) {
             console.error(`Failed to fetch user ${randomPlayer}:`, error);
             continue;
           }
         } else {
           targetName = game.botUsers.get(randomPlayer)!;
-          game.deadPlayers.set(targetName, targetRole.name);
+          game.deadPlayers.set(targetName, targetRole);
         }
 
         game.playerSkillUsage.set(playerId, skillUsage + 1);
@@ -140,6 +140,20 @@ async function handleBotNightActions(game: GameState): Promise<void> {
         const randomPlayer =
           eligiblePlayers[Math.floor(Math.random() * eligiblePlayers.length)];
         game.nightProtection.set(randomPlayer, true);
+        break;
+      }
+      case "Cupido": {
+        if (game.hasUsedSkill.get(playerId)) break;
+        if (eligiblePlayers.length < 2) break;
+
+        const shuffled = [...eligiblePlayers].sort(() => 0.5 - Math.random());
+        const player1 = shuffled[0];
+        const player2 = shuffled[1];
+
+        game.loveUnion.set(player1, player2);
+        game.hasUsedSkill.set(playerId, true);
+
+        console.log(`Cupido bot ${playerId} united ${player1} and ${player2}`);
         break;
       }
       default:

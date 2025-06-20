@@ -1,59 +1,86 @@
 import { REST, Routes } from "discord.js";
+import * as dotenv from "dotenv";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 
-require("dotenv").config();
-const fs = require("node:fs");
-const path = require("node:path");
+dotenv.config();
 
-const commands = [];
-// Grab all the command folders from the commands directory you created earlier
+interface Command {
+  data: {
+    toJSON(): unknown;
+  };
+  execute: Function;
+}
+
+const commands: unknown[] = [];
+
 const foldersPath = path.join(__dirname, "commands");
 const commandFolders = fs.readdirSync(foldersPath);
 
-for (const folder of commandFolders) {
-  // Grab all the command files from the commands directory you created earlier
-  const commandsPath = path.join(foldersPath, folder);
-  const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter((file) => file.endsWith(".js"));
-  // Grab the SlashCommandBuilder#toJSON() output of each command's data for deployment
-  for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    if ("data" in command && "execute" in command) {
-      commands.push(command.data.toJSON());
-    } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-      );
+async function loadCommands() {
+  for (const folder of commandFolders) {
+    const commandsPath = path.join(foldersPath, folder);
+    const commandFiles = fs
+      .readdirSync(commandsPath)
+      .filter((file) => file.endsWith(".js") || file.endsWith(".ts"));
+
+    for (const file of commandFiles) {
+      const filePath = path.join(commandsPath, file);
+      try {
+        // Convert Windows path to file:// URL
+        const fileUrl = pathToFileURL(filePath).href;
+        const commandModule = await import(fileUrl);
+
+        console.log(`Imported module for ${filePath}:`, commandModule);
+
+        // Handle both default exports and named exports
+        const moduleData = commandModule.default || commandModule;
+        const command: Command = {
+          data: moduleData.data,
+          execute: moduleData.execute,
+        };
+
+        if (command.data && command.execute) {
+          commands.push(command.data.toJSON());
+          console.log(`Loaded command from ${filePath}`);
+        } else {
+          console.warn(
+            `[WARNING] The command at ${filePath} is missing "data" or "execute" property.`
+          );
+        }
+      } catch (error) {
+        console.error(`[ERROR] Failed to load command at ${filePath}:`, error);
+      }
     }
   }
 }
 
-// Construct and prepare an instance of the REST module
 const rest = new REST().setToken(process.env.TOKEN ?? "");
 
-// and deploy your commands!
 (async () => {
   try {
+    if (!process.env.TOKEN || !process.env.APP_ID) {
+      throw new Error("Missing TOKEN or APP_ID in .env file");
+    }
+
+    await loadCommands();
+
     console.log(
       `Started refreshing ${commands.length} application (/) commands.`
     );
 
-    // The put method is used to fully refresh all commands in the guild with the current set
     const data = await rest.put(
-      //usar assim para fazer comandos nao focados em um unico server*/
-      Routes.applicationCommands(process.env.APP_ID ?? ""),
+      Routes.applicationCommands(process.env.APP_ID),
       { body: commands }
-      //test
-      /* Routes.applicationGuildCommands(process.env.APP_ID, process.env.GUILD_ID),
-			{ body: commands }, */
     );
 
     console.log(
-      `Successfully reloaded ${data.length} application (/) commands.`
+      `Successfully reloaded ${
+        (data as any[]).length
+      } application (/) commands.`
     );
   } catch (error) {
-    // And of course, make sure you catch and log any errors!
-    console.error(error);
+    console.error("Deployment error:", error);
   }
 })();

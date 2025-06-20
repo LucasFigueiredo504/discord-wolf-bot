@@ -14,7 +14,7 @@ export interface Role {
 export interface GameState {
   players: Map<string, string>;
   playerRoles: Map<string, Role>;
-  deadPlayers: Map<string, string>;
+  deadPlayers: Map<string, Role>;
   nightKill: Map<string, string>;
   nightSkills: Map<string, string>;
   nightProtection: Map<string, boolean>;
@@ -22,6 +22,7 @@ export interface GameState {
   botUsers: Map<string, string>;
   cantUseSkill: Map<string, boolean>;
   hasUsedSkill: Map<string, boolean>;
+  loveUnion: Map<string, string>;
   status: "waiting" | "night" | "morning-results" | "voting";
   startTime: number;
   playerSkillUsage: Map<string, number>;
