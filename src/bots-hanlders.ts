@@ -22,6 +22,10 @@ function createBotPlayers(game: GameState, numberOfBots: number): void {
     "Omega",
     "Phi",
     "Sigma",
+    "Bruce",
+    "Reub",
+    "Jerry",
+    "Tom",
   ];
 
   for (let i = 0; i < numberOfBots; i++) {

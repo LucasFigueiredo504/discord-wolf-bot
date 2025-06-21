@@ -85,7 +85,7 @@ export async function execute(
     return;
   }
 
-  const botsToAdd = 8 - game.players.size;
+  const botsToAdd = 9 - game.players.size;
   if (botsToAdd > 0) {
     createBotPlayers(game, botsToAdd);
     console.log(
