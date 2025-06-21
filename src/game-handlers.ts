@@ -228,86 +228,59 @@ async function handleNightKills(
       }
       continue;
     }
-
-    // Collect all victims (target and their love union partner, if any)
-    const victimIds = [targetId];
-    const loveUnionEntry = Array.from(game.loveUnion.entries()).find(
-      ([p1, p2]) => p1 === targetId || p2 === targetId
-    );
-    const partnerId = loveUnionEntry
-      ? targetId === loveUnionEntry[0]
-        ? loveUnionEntry[1]
-        : loveUnionEntry[0]
-      : undefined;
-    if (partnerId && game.players.has(partnerId)) {
-      victimIds.push(partnerId);
+    if (!game.players.has(targetId)) {
+      console.warn(`Victim ${targetId} not found in game.players`);
+      continue;
     }
 
-    for (const victimId of victimIds) {
-      if (!game.players.has(victimId)) {
-        console.warn(`Victim ${victimId} not found in game.players`);
+    const isBot = targetId.includes("bot_");
+    let username: string;
+    let victimUser: User | null = null;
+    const victimRole = game.playerRoles.get(targetId);
+
+    if (!victimRole?.name) {
+      console.error(`No role found for victim ${targetId}`);
+      continue;
+    }
+
+    if (!isBot) {
+      victimUser = await interaction.client.users
+        .fetch(targetId)
+        .catch(() => null);
+      if (!victimUser) {
+        console.error(`Failed to fetch user ${targetId}`);
         continue;
       }
+      username = victimUser.username;
+    } else {
+      username = game.botUsers.get(targetId) ?? "Unknown Bot";
+    }
 
-      const isBot = victimId.includes("bot_");
-      let username: string;
-      let victimUser: User | null = null;
-      const victimRole = game.playerRoles.get(victimId);
-
-      if (!victimRole?.name) {
-        console.error(`No role found for victim ${victimId}`);
-        continue;
-      }
-
-      if (!isBot) {
-        victimUser = await interaction.client.users
-          .fetch(victimId)
-          .catch(() => null);
-        if (!victimUser) {
-          console.error(`Failed to fetch user ${victimId}`);
-          continue;
-        }
-        username = victimUser.username;
-      } else {
-        username = game.botUsers.get(victimId) ?? "Unknown Bot";
-      }
-
-      if (victimRole?.name === "Bêbado" && userRole === "Lobo") {
-        if (!userId.includes("bot_")) {
-          const user = await interaction.client.users.fetch(userId);
-          await user.send(
-            "Você devorou o bêbado, ele ingeriu tanto álcool que até você ficou bêbado ao comê-lo e não poderá atacar na próxima noite!"
-          );
-        }
-        console.log(
-          `Wolf ${userId} incapacitated by eating Bêbado ${victimId}`
+    if (victimRole?.name === "Bêbado" && userRole === "Lobo") {
+      if (!userId.includes("bot_")) {
+        const user = await interaction.client.users.fetch(userId);
+        await user.send(
+          "Você devorou o bêbado, ele ingeriu tanto álcool que até você ficou bêbado ao comê-lo e não poderá atacar na próxima noite!"
         );
       }
+      console.log(`Wolf ${userId} incapacitated by eating Bêbado ${targetId}`);
+    }
 
-      victims.push({ user: { username }, role: victimRole.name });
-      game.players.delete(victimId);
-      game.deadPlayers.set(username, victimRole);
-      game.playerRoles.delete(victimId);
+    victims.push({ user: { username }, role: victimRole.name });
+    game.players.delete(targetId);
+    game.deadPlayers.set(username, victimRole);
 
-      if (!isBot && victimUser) {
-        const killedEmbed = new EmbedBuilder()
-          .setColor(0x000066)
-          .setDescription(
-            victimId === targetId
-              ? MESSAGES.VICTIM_KILLED
-              : MESSAGES.LOVE_UNION_DEATH(
-                  victims.find((v) => v.user.username !== username)!.user
-                    .username
-                )
-          )
-          .setImage(
-            "https://i.pinimg.com/originals/8d/17/a6/8d17a66e3c8eb6077a81ebf79814ced9.gif"
-          );
-        try {
-          await victimUser.send({ embeds: [killedEmbed], components: [] });
-        } catch (error) {
-          console.error(`Couldn't send DM to victim ${username}: ${error}`);
-        }
+    if (!isBot && victimUser) {
+      const killedEmbed = new EmbedBuilder()
+        .setColor(0x000066)
+        .setDescription(MESSAGES.VICTIM_KILLED)
+        .setImage(
+          "https://i.pinimg.com/originals/8d/17/a6/8d17a66e3c8eb6077a81ebf79814ced9.gif"
+        );
+      try {
+        await victimUser.send({ embeds: [killedEmbed], components: [] });
+      } catch (error) {
+        console.error(`Couldn't send DM to victim ${username}: ${error}`);
       }
     }
   }
@@ -384,22 +357,23 @@ async function handleNewRound(
   await interaction.followUp({ embeds: [morningAnnouncementEmbed] });
   await setTimeout(4000);
   const didSomeoneDie = await handleNightSkillsResults(interaction);
+
   const nightKillResults = await handleNightKills(interaction);
 
   let morningDescription = "";
-
   await sendPrivateDayMessages(interaction, game);
 
   if (nightKillResults.length > 0) {
     morningDescription += "\n\n💀 Durante a noite...\n";
-    for (const result of nightKillResults) {
-      morningDescription += `${result.user.username} foi encontrado morto! Eles eram um ${result.role}!\n`;
+    for (const result of [...nightKillResults]) {
+      morningDescription += `${result.user.username} foi encontrado morto! Ele era um ${result.role}!\n`;
     }
     await interaction.followUp(morningDescription);
   } else if (!didSomeoneDie) {
     morningDescription += "\n\nMilagrosamente, ninguém morreu esta noite!";
     await interaction.followUp(morningDescription);
   }
+  await checkForPartnersDeath(interaction, game);
 
   await setTimeout(2000);
   await handleBotDayActions(interaction, game);
@@ -475,39 +449,18 @@ async function handleVotingResults(
 
   const eliminatedId = playersWithMaxVotes[0];
   if (eliminatedId) {
-    const victimIds = [eliminatedId];
-    const loveUnionEntry = Array.from(game.loveUnion.entries()).find(
-      ([p1, p2]) => p1 === eliminatedId || p2 === eliminatedId
+    const isBot = eliminatedId.includes("bot_");
+    const username = isBot
+      ? game.botUsers.get(eliminatedId) ?? "Unknown Bot"
+      : (await interaction.client.users.fetch(eliminatedId)).username;
+    const eliminatedRole = game.playerRoles.get(eliminatedId)!;
+
+    await interaction.followUp(
+      `A vila votou! ${username} foi enforcado!\n${username} era o ${eliminatedRole.name}`
     );
-    const partnerId = loveUnionEntry
-      ? eliminatedId === loveUnionEntry[0]
-        ? loveUnionEntry[1] // eliminatedId is p1, so partner is p2
-        : loveUnionEntry[0] // eliminatedId is p2, so partner is p1
-      : undefined;
-    if (partnerId && game.players.has(partnerId)) {
-      victimIds.push(partnerId);
-    }
-
-    for (const victimId of victimIds) {
-      const isBot = victimId.includes("bot_");
-      const username = isBot
-        ? game.botUsers.get(victimId) ?? "Unknown Bot"
-        : (await interaction.client.users.fetch(victimId)).username;
-      const eliminatedRole = game.playerRoles.get(victimId)!;
-
-      await interaction.followUp(
-        `A vila votou! ${username} foi enforcado!\n${username} era o ${
-          eliminatedRole.name
-        }${
-          victimId !== eliminatedId
-            ? `, e seu amor ${username} morreu de coração partido!`
-            : ""
-        }`
-      );
-      game.deadPlayers.set(username, eliminatedRole);
-      game.players.delete(victimId);
-      game.playerRoles.delete(victimId);
-    }
+    game.deadPlayers.set(username, eliminatedRole);
+    game.players.delete(eliminatedId);
+    checkForPartnersDeath(interaction, game);
   }
 
   game.votes.clear();
@@ -540,6 +493,9 @@ async function sendPrivateNightMessages(
       if (wolfId.includes("bot_")) continue;
       const wolf = await interaction.client.users.fetch(wolfId);
       const canUseSkill = !game.cantUseSkill.get(wolfId);
+      if (game.deadPlayers.has(wolfId)) {
+        continue;
+      }
       if (canUseSkill) {
         try {
           await wolf.send(
@@ -559,6 +515,9 @@ async function sendPrivateNightMessages(
     .map(([villagerId, role]) => ({ villagerId, role }));
 
   for (const { villagerId, role } of others) {
+    if (game.deadPlayers.has(villagerId)) {
+      continue;
+    }
     if (villagerId.includes("bot_")) continue;
     const canUseSkill = !game.cantUseSkill.get(villagerId);
     if (canUseSkill) {
@@ -581,6 +540,9 @@ async function sendPrivateDayMessages(
     .map(([userId, role]) => ({ userId, role }));
 
   for (const { userId, role } of shooters) {
+    if (game.deadPlayers.has(userId)) {
+      continue;
+    }
     if (userId.includes("bot_")) continue;
     const canUseSkill = !game.cantUseSkill.get(userId);
     if (canUseSkill) {
@@ -641,7 +603,6 @@ async function handleNightSkillsResults(
           );
           game.players.delete(userId);
           game.deadPlayers.set(skillUser.username, skillUserRole);
-          game.playerRoles.delete(userId);
           game.nightSkills.delete(userId);
 
           await interaction.followUp(
@@ -661,7 +622,6 @@ async function handleNightSkillsResults(
           );
           game.players.delete(userId);
           game.deadPlayers.set(skillUser.username, skillUserRole);
-          game.playerRoles.delete(userId);
           game.nightSkills.delete(userId);
 
           await interaction.followUp(
@@ -742,6 +702,7 @@ async function checkEndGameStatus(
       );
 
     await interaction.followUp({ embeds: [wolfEmbed], components: [] });
+    displayWhoIsAlive(interaction, game, true);
     gameManager.removeGame(interaction.channelId);
     return;
   }
@@ -762,6 +723,7 @@ async function checkEndGameStatus(
       .setImage("https://i.giphy.com/8cqVIPHCKLhfO.webp");
 
     await interaction.followUp({ embeds: [killerEmbed], components: [] });
+    displayWhoIsAlive(interaction, game, true);
     gameManager.removeGame(interaction.channelId);
     return;
   }
@@ -812,10 +774,87 @@ async function displayWhoIsAlive(
 
   const playersAliveEmbed = new EmbedBuilder()
     .setColor(0xffff00)
-    .setTitle("Jogadores vivos")
+    .setTitle(reveal ? "Papéis da partida" : "Jogadores vivos")
     .setDescription(playersAliveDescription);
 
   await interaction.followUp({ embeds: [playersAliveEmbed] });
+}
+async function checkForPartnersDeath(
+  interaction: ChatInputCommandInteraction,
+  game: GameState
+) {
+  const MESSAGES = {
+    LOVE_UNION_DEATH: (partnerName: string) =>
+      `Seu amor, ${partnerName}, foi morto, e você não conseguiu viver sem ele(a)!`,
+  };
+
+  // Create a map of player IDs to usernames
+  const playerUsernames = new Map<string, string>();
+  for (const playerId of game.players.keys()) {
+    if (playerId.includes("bot_")) {
+      playerUsernames.set(
+        playerId,
+        game.botUsers.get(playerId) || "Unknown Bot"
+      );
+    } else {
+      try {
+        const user = await interaction.client.users.fetch(playerId);
+        playerUsernames.set(playerId, user.username);
+      } catch (error) {
+        console.error(`Failed to fetch username for ${playerId}:`, error);
+      }
+    }
+  }
+  // Add dead players (assuming deadPlayers uses player IDs as keys)
+  for (const [username, role] of game.deadPlayers) {
+    const playerId = Array.from(game.playerRoles.entries()).find(
+      ([id, r]) =>
+        r === role && (game.botUsers.get(id) === username || id === username)
+    )?.[0];
+    if (playerId) {
+      playerUsernames.set(playerId, username);
+    }
+  }
+
+  for (const [playerId, partnerId] of game.loveUnion) {
+    if (!game.players.has(playerId)) continue;
+    if (!game.players.has(partnerId)) {
+      const victimRole = game.playerRoles.get(playerId);
+      if (!victimRole) {
+        console.error(`No role found for ${playerId}`);
+        continue;
+      }
+
+      const username = playerUsernames.get(playerId);
+      const partnerName = playerUsernames.get(partnerId);
+      if (!username || !partnerName) {
+        console.error(`Missing username for ${playerId} or ${partnerId}`);
+        continue;
+      }
+
+      game.players.delete(playerId);
+      game.deadPlayers.set(username, victimRole);
+
+      if (!playerId.includes("bot_")) {
+        try {
+          const victimUser = await interaction.client.users.fetch(playerId);
+          const loveDeathEmbed = new EmbedBuilder()
+            .setColor(0x000066)
+            .setDescription(MESSAGES.LOVE_UNION_DEATH(partnerName))
+            .setImage(
+              "https://i.pinimg.com/originals/8d/17/a6/8d17a66e3c8eb6077a81ebf79814ced9.gif"
+            );
+          await victimUser.send({ embeds: [loveDeathEmbed], components: [] });
+        } catch (error) {
+          console.error(`Couldn't send DM to ${username}: ${error}`);
+        }
+      }
+
+      await interaction.followUp(
+        `${username} morreu de coração partido após a morte de seu amor, ${partnerName}! Eles eram um ${victimRole.name}.`
+      );
+    }
+  }
 }
 
 async function handlePlayersAutocomplete(
@@ -824,6 +863,15 @@ async function handlePlayersAutocomplete(
   focusedValue: string,
   choices: { name: string; value: string }[]
 ): Promise<void> {
+  if (!game) {
+    await interaction.respond([]);
+    return;
+  }
+
+  if (!game.players.has(interaction.user.id)) {
+    await interaction.respond([]);
+    return;
+  }
   for (const id of game.players.keys()) {
     let name: string | undefined;
     const userRole = game.playerRoles.get(interaction.user.id)!;
@@ -857,5 +905,6 @@ export {
   handleNewRound,
   sendPrivateNightMessages,
   createBotPlayers,
+  checkForPartnersDeath,
   handlePlayersAutocomplete,
 };

@@ -27,6 +27,11 @@ export async function autocomplete(
     return;
   }
 
+  if (!game.players.has(interaction.user.id)) {
+    await interaction.respond([]);
+    return;
+  }
+
   try {
     const focusedValue = interaction.options.getFocused().toLowerCase();
     const choices: { name: string; value: string }[] = [];

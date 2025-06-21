@@ -150,6 +150,14 @@ export async function execute(
     });
     return;
   }
+  const skillUsage = game.playerSkillUsage.get(interaction.user.id) || 0;
+  if (skillUsage >= 1) {
+    await interaction.reply({
+      content: "Você já uniu um casal!",
+      ephemeral: true,
+    });
+    return;
+  }
 
   const isTargetABot = targetId.includes("bot_");
   const isTargetTwoABot = targetIdTwo.includes("bot_");
@@ -169,7 +177,9 @@ export async function execute(
   );
   if (!targetTwo) return;
 
+  game.playerSkillUsage.set(interaction.user.id, skillUsage + 1);
   game.loveUnion.set(targetId, targetIdTwo);
+  game.loveUnion.set(targetIdTwo, targetId);
   game.hasUsedSkill.set(interaction.user.id, true);
   console.log(
     `Cupid ${interaction.user.id} paired ${targetId} with ${targetIdTwo}`
@@ -189,6 +199,11 @@ export async function autocomplete(
     const choices: { name: string; value: string }[] = [];
     const game = gameManager.getGame(interaction.channelId);
     if (!game) {
+      await interaction.respond([]);
+      return;
+    }
+
+    if (!game.players.has(interaction.user.id)) {
       await interaction.respond([]);
       return;
     }

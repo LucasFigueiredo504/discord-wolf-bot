@@ -5,7 +5,10 @@ import {
   User,
 } from "discord.js";
 import gameManager from "../../game-state";
-import { handlePlayersAutocomplete } from "../../game-handlers";
+import {
+  checkForPartnersDeath,
+  handlePlayersAutocomplete,
+} from "../../game-handlers";
 
 export const data = new SlashCommandBuilder()
   .setName("tiro")
@@ -28,6 +31,11 @@ export async function autocomplete(
     const game = gameManager.getGame(interaction.channelId);
 
     if (!game) {
+      await interaction.respond([]);
+      return;
+    }
+
+    if (!game.players.has(interaction.user.id)) {
       await interaction.respond([]);
       return;
     }
@@ -155,7 +163,6 @@ export async function execute(
   game.playerSkillUsage.set(interaction.user.id, skillUsage + 1);
   game.deadPlayers.set(username, targetRole);
   game.players.delete(targetId);
-  game.playerRoles.delete(targetId);
   game.hasUsedSkill.set(interaction.user.id, true);
 
   await interaction.reply({
@@ -165,4 +172,5 @@ export async function execute(
   await interaction.followUp(
     `💥BAANG! Um tiro ecoa em meio a multidão, se trata de ${interaction.user.username} que acabou de atirar em ${username}!\n${username} era o ${targetRole.name}`
   );
+  checkForPartnersDeath(interaction, game);
 }

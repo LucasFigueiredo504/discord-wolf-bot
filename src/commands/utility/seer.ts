@@ -31,6 +31,11 @@ export async function autocomplete(
       return;
     }
 
+    if (!game.players.has(interaction.user.id)) {
+      await interaction.respond([]);
+      return;
+    }
+
     await handlePlayersAutocomplete(game, interaction, focusedValue, choices);
     await interaction.respond(choices.slice(0, 25));
   } catch (error) {

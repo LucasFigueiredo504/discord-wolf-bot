@@ -9,6 +9,7 @@ import {
 import { setTimeout } from "node:timers/promises";
 import gameManager from "./game-state";
 import { GameState } from "./types";
+import { checkForPartnersDeath } from "./game-handlers";
 
 function createBotPlayers(game: GameState, numberOfBots: number): void {
   const botNames = [
@@ -84,11 +85,11 @@ async function handleBotDayActions(
 
         game.playerSkillUsage.set(playerId, skillUsage + 1);
         game.players.delete(randomPlayer);
-        game.playerRoles.delete(randomPlayer);
 
         await interaction.followUp(
           `💥BAANG! Um tiro ecoa em meio a multidão, se trata de ${botName} que acabou de atirar em ${targetName}!\n ${targetName} era o ${targetRole.name}`
         );
+        checkForPartnersDeath(interaction, game);
       }
     }
   }
@@ -150,12 +151,19 @@ async function handleBotNightActions(game: GameState): Promise<void> {
         if (game.hasUsedSkill.get(playerId)) break;
         if (eligiblePlayers.length < 2) break;
 
+        const skillUsage = game.playerSkillUsage.get(playerId) || 0;
+        if (skillUsage >= 1) {
+          continue;
+        }
+
         const shuffled = [...eligiblePlayers].sort(() => 0.5 - Math.random());
         const player1 = shuffled[0];
         const player2 = shuffled[1];
 
         game.loveUnion.set(player1, player2);
+        game.loveUnion.set(player2, player1);
         game.hasUsedSkill.set(playerId, true);
+        game.playerSkillUsage.set(playerId, 1);
 
         console.log(`Cupido bot ${playerId} united ${player1} and ${player2}`);
         break;
